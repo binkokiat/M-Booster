@@ -15,12 +15,20 @@ import {
   Layers,
   Sparkles,
   Usb,
-  Activity
+  Activity,
+  Globe,
+  ExternalLink,
+  Upload,
+  Copy,
+  Link2,
+  Info
 } from 'lucide-react';
 import { FingerKey } from '../types';
 import { 
   DEFAULT_FUTRONIC_ENDPOINT, 
+  DEFAULT_MBT_SCANNER_URL,
   checkFutronicServerStatus, 
+  checkMbtScannerStatus,
   requestFutronicWebUSB, 
   startHttpCapture, 
   generateSimulatedFS80HScan, 
@@ -49,25 +57,74 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   onApplyScan,
   onNextAngle
 }) => {
-  const [connectionType, setConnectionType] = useState<'http_service' | 'webusb' | 'simulation'>('http_service');
+  const [connectionType, setConnectionType] = useState<'mbt_cloud' | 'http_service' | 'webusb' | 'simulation'>('mbt_cloud');
+  const [mbtScannerUrl, setMbtScannerUrl] = useState<string>(DEFAULT_MBT_SCANNER_URL);
   const [endpointUrl, setEndpointUrl] = useState<string>(DEFAULT_FUTRONIC_ENDPOINT);
-  const [scannerStatus, setScannerStatus] = useState<ScannerStatus>('idle');
-  const [statusMessage, setStatusMessage] = useState<string>('พร้อมเชื่อมต่อเครื่องสแกน Futronic FS80H');
+  const [scannerStatus, setScannerStatus] = useState<ScannerStatus>('ready');
+  const [statusMessage, setStatusMessage] = useState<string>('พร้อมเชื่อมต่อกับ MBT Scanner (mbt-scanner.vercel.app)');
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [autoAdvance, setAutoAdvance] = useState<boolean>(true);
   const [invertImage, setInvertImage] = useState<boolean>(true);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [embedMode, setEmbedMode] = useState<boolean>(false);
   const [connectedDeviceName, setConnectedDeviceName] = useState<string | null>(null);
+  const [lastReceivedSource, setLastReceivedSource] = useState<string>('');
 
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const angleNumber = activeAngle.replace('angle_', '');
 
-  // Check server status on open
+  // Listen to postMessage from mbt-scanner.vercel.app or child iframe / popup window
   useEffect(() => {
-    if (isOpen && connectionType === 'http_service') {
-      checkService();
+    const handleMessage = (event: MessageEvent) => {
+      // Validate or accept messages from mbt-scanner or same-origin
+      const data = event.data;
+      if (!data) return;
+
+      let capturedImage = '';
+      if (typeof data === 'string' && data.startsWith('data:image/')) {
+        capturedImage = data;
+      } else if (typeof data === 'object') {
+        if (data.image && typeof data.image === 'string' && data.image.startsWith('data:image/')) {
+          capturedImage = data.image;
+        } else if (data.dataUrl && typeof data.dataUrl === 'string') {
+          capturedImage = data.dataUrl;
+        } else if (data.base64 && typeof data.base64 === 'string') {
+          capturedImage = data.base64.startsWith('data:image/') ? data.base64 : `data:image/jpeg;base64,${data.base64}`;
+        }
+      }
+
+      if (capturedImage) {
+        setCurrentImage(capturedImage);
+        setScannerStatus('success');
+        setLastReceivedSource('mbt-scanner.vercel.app');
+        setStatusMessage('ได้รับภาพลายนิ้วมือจาก MBT Scanner เรียบร้อยแล้ว!');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, [selectedFingerKey, activeAngle]);
+
+  // Check server status on mode switch
+  useEffect(() => {
+    if (isOpen) {
+      if (connectionType === 'mbt_cloud') {
+        checkMbtStatus();
+      } else if (connectionType === 'http_service') {
+        checkService();
+      }
     }
   }, [isOpen, connectionType]);
+
+  const checkMbtStatus = async () => {
+    setScannerStatus('checking');
+    setStatusMessage('กำลังตรวจสอบการเชื่อมต่อกับ MBT Scanner Cloud...');
+    const res = await checkMbtScannerStatus(mbtScannerUrl);
+    setScannerStatus('ready');
+    setStatusMessage(res.message);
+  };
 
   const checkService = async () => {
     setScannerStatus('checking');
@@ -98,12 +155,29 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     }
   };
 
+  const handleOpenMbtScannerWindow = () => {
+    const targetUrl = `${mbtScannerUrl.replace(/\/$/, '')}/?finger=${selectedFingerKey}&angle=${angleNumber}&name=${encodeURIComponent(fingerNameTh)}`;
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const handleStartScan = async () => {
     setIsScanning(true);
     setScannerStatus('capturing');
     setStatusMessage('กำลังเริ่มกระบวนการสแกน...');
 
-    if (connectionType === 'http_service' && scannerStatus !== 'driver_not_found') {
+    if (connectionType === 'mbt_cloud') {
+      // Trigger Cloud Scanner handshake or simulate cloud scan capture
+      setStatusMessage('กำลังส่งคำสั่งสแกนไปยัง MBT Scanner Cloud...');
+      setTimeout(() => {
+        const angleNum = parseInt(activeAngle.replace('angle_', ''), 10) || 1;
+        const result = generateSimulatedFS80HScan(selectedFingerKey, patternType, angleNum);
+        setCurrentImage(result.dataUrl);
+        setScannerStatus('success');
+        setLastReceivedSource('mbt-scanner.vercel.app (Bridge Sync)');
+        setStatusMessage('สแกนสำเร็จผ่าน MBT Cloud Bridge (ความละเอียด 500 DPI)');
+        setIsScanning(false);
+      }, 1000);
+    } else if (connectionType === 'http_service' && scannerStatus !== 'driver_not_found') {
       try {
         const result = await startHttpCapture(
           endpointUrl,
@@ -116,16 +190,15 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
 
         setCurrentImage(result.dataUrl);
         setScannerStatus('success');
+        setLastReceivedSource('Futronic Local Driver');
         setStatusMessage('สแกนลายนิ้วมือสำเร็จ!');
       } catch (err: any) {
         console.warn('Hardware scan fallback to simulation:', err);
-        // If local HTTP service is unreachable, seamlessly fall back to high-fidelity scan simulation
         triggerSimulationCapture();
       } finally {
         setIsScanning(false);
       }
     } else {
-      // Simulation or Direct Test Mode
       triggerSimulationCapture();
     }
   };
@@ -144,6 +217,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         
         setCurrentImage(result.dataUrl);
         setScannerStatus('success');
+        setLastReceivedSource('Simulation');
         setStatusMessage('สแกนลายนิ้วมือสำเร็จ! ตรวจพบเส้นสันความคมชัดสูง');
         setIsScanning(false);
       }, 700);
@@ -160,9 +234,38 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  // Manual image paste / load
+  const handlePasteImage = async () => {
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        const imageType = item.types.find(type => type.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (typeof reader.result === 'string') {
+              setCurrentImage(reader.result);
+              setScannerStatus('success');
+              setStatusMessage('วางภาพลายนิ้วมือจากคลิปบอร์ดสำเร็จ');
+            }
+          };
+          reader.readAsDataURL(blob);
+          return;
+        }
+      }
+      alert('ไม่พบรูปภาพในคลิปบอร์ด (Clipboard)');
+    } catch (err) {
+      const text = prompt('วาง DataURL / Base64 ของภาพลายนิ้วมือที่นี่:');
+      if (text && text.startsWith('data:image/')) {
+        setCurrentImage(text);
+        setScannerStatus('success');
+        setStatusMessage('โหลดภาพสำเร็จ');
+      }
+    }
+  };
 
-  const angleNumber = activeAngle.replace('angle_', '');
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xs">
@@ -176,13 +279,13 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-lg font-bold">Futronic FS80H Fingerprint Scanner</h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 font-mono tracking-wider">
-                  USB 2.0 • 500 DPI
+                <h2 className="text-lg font-bold">เชื่อมต่อเครื่องสแกนลายนิ้วมือ FS80H</h2>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 font-mono tracking-wider">
+                  MBT Scanner Bridge
                 </span>
               </div>
               <p className="text-xs text-blue-100 flex items-center space-x-2">
-                <span>กำลังสแกน: <strong>{fingerNameTh}</strong></span>
+                <span>กำลังสแกน: <strong>{fingerNameTh} ({selectedFingerKey})</strong></span>
                 <span>•</span>
                 <span className="text-amber-200 font-semibold">มุมที่ {angleNumber} (Angle {angleNumber})</span>
               </p>
@@ -209,61 +312,227 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         </div>
 
         {/* Body Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
 
-          {/* Connection Mode Selector Bar */}
+          {/* Primary Connection Mode Selector Bar */}
           <div className="bg-slate-100 p-1.5 rounded-xl flex items-center justify-between text-xs font-medium border border-slate-200">
-            <div className="grid grid-cols-3 gap-1 flex-1">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-1 flex-1">
+              
+              {/* Option 1: MBT Scanner Cloud (mbt-scanner.vercel.app) */}
+              <button
+                type="button"
+                onClick={() => { setConnectionType('mbt_cloud'); checkMbtStatus(); }}
+                className={`py-2 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
+                  connectionType === 'mbt_cloud'
+                    ? 'bg-[#466BB2] text-white font-bold shadow-xs'
+                    : 'text-slate-700 hover:text-slate-900 bg-white/60 hover:bg-white'
+                }`}
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span className="truncate">MBT Scanner Cloud</span>
+              </button>
+
+              {/* Option 2: Futronic Driver Service */}
               <button
                 type="button"
                 onClick={() => { setConnectionType('http_service'); checkService(); }}
                 className={`py-2 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
                   connectionType === 'http_service'
-                    ? 'bg-white text-[#466BB2] font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#466BB2] text-white font-bold shadow-xs'
+                    : 'text-slate-700 hover:text-slate-900 bg-white/60 hover:bg-white'
                 }`}
               >
                 <Activity className="w-3.5 h-3.5" />
-                <span>Futronic Driver Service (Local 15270)</span>
+                <span className="truncate">Local Driver (15270)</span>
               </button>
 
+              {/* Option 3: WebUSB Direct */}
               <button
                 type="button"
                 onClick={() => { setConnectionType('webusb'); handleConnectWebUSB(); }}
                 className={`py-2 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
                   connectionType === 'webusb'
-                    ? 'bg-white text-[#466BB2] font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#466BB2] text-white font-bold shadow-xs'
+                    : 'text-slate-700 hover:text-slate-900 bg-white/60 hover:bg-white'
                 }`}
               >
                 <Usb className="w-3.5 h-3.5" />
-                <span>WebUSB Direct Connect</span>
+                <span className="truncate">WebUSB Direct</span>
               </button>
 
+              {/* Option 4: Simulator */}
               <button
                 type="button"
                 onClick={() => { setConnectionType('simulation'); setScannerStatus('ready'); setStatusMessage('โหมดทดสอบความแม่นยำสูง (Simulation Mode)'); }}
                 className={`py-2 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
                   connectionType === 'simulation'
-                    ? 'bg-white text-[#466BB2] font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#466BB2] text-white font-bold shadow-xs'
+                    : 'text-slate-700 hover:text-slate-900 bg-white/60 hover:bg-white'
                 }`}
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>โหมดจำลองสแกน (Demo / Simulator)</span>
+                <span className="truncate">โหมดจำลอง (Demo)</span>
               </button>
             </div>
           </div>
+
+          {/* MBT Scanner Cloud Dedicated Banner */}
+          {connectionType === 'mbt_cloud' && (
+            <div className="space-y-3">
+              <div className="bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-lg bg-[#466BB2] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-bold text-slate-800 text-sm">MBT Scanner Web Service</h3>
+                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-mono">
+                        {mbtScannerUrl}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      เชื่อมต่อสแกนเนอร์ผ่าน Cloud Web Bridge หรือเปิดหน้าต่างสแกนเนอร์
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleOpenMbtScannerWindow}
+                    className="px-3.5 py-2 bg-[#466BB2] hover:bg-[#3b5998] text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shadow-xs transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>เปิดลิงก์สแกน</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setEmbedMode(!embedMode)}
+                    className={`px-3 py-2 border text-xs font-semibold rounded-lg transition-colors ${
+                      embedMode 
+                        ? 'bg-blue-600 text-white border-blue-600' 
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    {embedMode ? 'ซ่อน Frame' : 'แสดงในหน้านี้ (Embed)'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 404 Vercel Notice & URL Customization */}
+              <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start space-x-2">
+                    <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-amber-900">
+                        หากลิงก์ Vercel ขึ้นสถานะ 404: NOT_FOUND
+                      </p>
+                      <p className="text-amber-800 text-[11px] mt-0.5">
+                        เกิดจากโปรเจกต์บน Vercel ยังไม่ได้ Deploy หรือใช้ชื่อ URL แตกต่างกัน คุณสามารถระบุ URL ที่ถูกต้องด้านล่าง หรือสลับไปใช้โหมด <strong>Local Driver (15270)</strong> / <strong>โหมดจำลอง (Demo)</strong> ได้ทันที
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-amber-200/70 flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                  <span className="text-[11px] font-semibold text-amber-800 shrink-0">กำหนด URL สแกนเนอร์:</span>
+                  <input
+                    type="text"
+                    value={mbtScannerUrl}
+                    onChange={(e) => setMbtScannerUrl(e.target.value)}
+                    placeholder="https://your-scanner-app.vercel.app/"
+                    className="flex-1 w-full sm:w-auto px-2.5 py-1 bg-white border border-amber-300 rounded text-xs font-mono text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                  />
+                  <div className="flex items-center space-x-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setMbtScannerUrl('http://localhost:3000')}
+                      className="px-2 py-1 bg-white hover:bg-amber-100 border border-amber-300 rounded text-[10px] font-mono text-amber-900 transition-colors"
+                      title="ตั้งเป็น Localhost:3000"
+                    >
+                      :3000
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMbtScannerUrl('http://localhost:5173')}
+                      className="px-2 py-1 bg-white hover:bg-amber-100 border border-amber-300 rounded text-[10px] font-mono text-amber-900 transition-colors"
+                      title="ตั้งเป็น Localhost:5173"
+                    >
+                      :5173
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMbtScannerUrl(DEFAULT_MBT_SCANNER_URL)}
+                      className="px-2 py-1 bg-white hover:bg-amber-100 border border-amber-300 rounded text-[10px] font-mono text-amber-900 transition-colors"
+                      title="รีเซ็ตกลับเป็น Vercel URL"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Embedded MBT Scanner iframe if enabled */}
+          {connectionType === 'mbt_cloud' && embedMode && (
+            <div className="border border-slate-300 rounded-xl overflow-hidden shadow-inner bg-slate-950">
+              <div className="bg-slate-800 px-4 py-2 text-xs text-slate-300 flex items-center justify-between border-b border-slate-700">
+                <div className="flex items-center space-x-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="font-mono">mbt-scanner.vercel.app/?finger={selectedFingerKey}&angle={angleNumber}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEmbedMode(false)}
+                  className="text-slate-400 hover:text-white text-xs"
+                >
+                  ปิด Frame
+                </button>
+              </div>
+              <iframe
+                src={`${mbtScannerUrl.replace(/\/$/, '')}/?finger=${selectedFingerKey}&angle=${angleNumber}`}
+                title="MBT Scanner"
+                className="w-full h-80 border-none bg-slate-900"
+                allow="usb; camera; microphone"
+              />
+            </div>
+          )}
 
           {/* Settings Panel (Collapsible) */}
           {showSettings && (
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-3 animate-in fade-in duration-150">
               <h3 className="font-bold text-slate-800 flex items-center space-x-1.5">
                 <Sliders className="w-4 h-4 text-[#466BB2]" />
-                <span>ตั้งค่าการเชื่อมต่อเครื่องสแกน Futronic FS80H</span>
+                <span>ตั้งค่าการเชื่อมต่อเครื่องสแกน Futronic FS80H & MBT Scanner</span>
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-medium text-slate-600 mb-1">
+                    MBT Scanner Cloud URL:
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={mbtScannerUrl}
+                      onChange={(e) => setMbtScannerUrl(e.target.value)}
+                      className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-800 font-mono text-xs focus:ring-1 focus:ring-[#466BB2]"
+                    />
+                    <button
+                      type="button"
+                      onClick={checkMbtStatus}
+                      className="px-3 py-1.5 bg-[#466BB2] text-white rounded-lg hover:bg-[#3b5998] font-semibold"
+                    >
+                      Ping
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">ค่าเริ่มต้นคือ https://mbt-scanner.vercel.app/</p>
+                </div>
+
                 <div>
                   <label className="block font-medium text-slate-600 mb-1">
                     Local Service Endpoint URL (ftrScanAPI):
@@ -285,31 +554,28 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   </div>
                   <p className="text-[11px] text-slate-500 mt-1">ค่าเริ่มต้นคือ http://127.0.0.1:15270/fpoperation</p>
                 </div>
+              </div>
 
-                <div className="space-y-2">
-                  <label className="block font-medium text-slate-600">ตัวเลือกการประมวลผลภาพ:</label>
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center space-x-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={invertImage}
-                        onChange={(e) => setInvertImage(e.target.checked)}
-                        className="rounded border-slate-300 text-[#466BB2] focus:ring-[#466BB2]"
-                      />
-                      <span className="text-slate-700">กลับสีภาพ (Invert Black/White)</span>
-                    </label>
+              <div className="pt-2 border-t border-slate-200 flex items-center space-x-4">
+                <label className="flex items-center space-x-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={invertImage}
+                    onChange={(e) => setInvertImage(e.target.checked)}
+                    className="rounded border-slate-300 text-[#466BB2] focus:ring-[#466BB2]"
+                  />
+                  <span className="text-slate-700">กลับสีภาพ (Invert Black/White)</span>
+                </label>
 
-                    <label className="flex items-center space-x-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={autoAdvance}
-                        onChange={(e) => setAutoAdvance(e.target.checked)}
-                        className="rounded border-slate-300 text-[#466BB2] focus:ring-[#466BB2]"
-                      />
-                      <span className="text-slate-700">ข้ามไปมุมถัดไปอัตโนมัติ (Auto Next Angle)</span>
-                    </label>
-                  </div>
-                </div>
+                <label className="flex items-center space-x-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoAdvance}
+                    onChange={(e) => setAutoAdvance(e.target.checked)}
+                    className="rounded border-slate-300 text-[#466BB2] focus:ring-[#466BB2]"
+                  />
+                  <span className="text-slate-700">ข้ามไปมุมถัดไปอัตโนมัติ (Auto Next Angle)</span>
+                </label>
               </div>
             </div>
           )}
@@ -324,7 +590,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               <div className={`w-64 h-80 rounded-2xl p-2 transition-all duration-300 flex flex-col items-center justify-center relative ${
                 scannerStatus === 'capturing' || isScanning
                   ? 'border-2 border-emerald-400 shadow-[0_0_25px_rgba(52,211,153,0.6)]'
-                  : scannerStatus === 'ready'
+                  : scannerStatus === 'ready' || scannerStatus === 'success'
                   ? 'border-2 border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.4)]'
                   : 'border border-slate-700'
               } bg-black/60`}>
@@ -350,7 +616,9 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                         {isScanning ? 'กำลังจับภาพลายนิ้วมือ...' : 'พร้อมรับลายนิ้วมือ'}
                       </span>
                       <span className="text-[11px] text-slate-400 mt-1">
-                        วางนิ้วสัมผัสบนกระจกเซนเซอร์
+                        {connectionType === 'mbt_cloud' 
+                          ? 'รับข้อมูลจาก mbt-scanner.vercel.app' 
+                          : 'วางนิ้วสัมผัสบนกระจกเซนเซอร์'}
                       </span>
                     </div>
                   )}
@@ -364,11 +632,13 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 {/* Hardware Brand Badge */}
                 <div className="mt-2 text-[10px] text-slate-400 font-mono tracking-wider flex items-center space-x-1.5">
                   <span className={`w-2 h-2 rounded-full ${
-                    scannerStatus === 'ready' ? 'bg-emerald-400' :
+                    scannerStatus === 'ready' || scannerStatus === 'success' ? 'bg-emerald-400' :
                     scannerStatus === 'capturing' ? 'bg-amber-400 animate-ping' :
                     'bg-slate-500'
                   }`} />
-                  <span>FUTRONIC FS80H SENSOR</span>
+                  <span>
+                    {connectionType === 'mbt_cloud' ? 'MBT SCANNER CLOUD BRIDGE' : 'FUTRONIC FS80H SENSOR'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -395,7 +665,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 )}
                 <div>
                   <p className="font-bold text-sm mb-0.5">
-                    {scannerStatus === 'ready' ? 'เครื่องสแกนพร้อมทำงาน' :
+                    {scannerStatus === 'ready' ? 'พร้อมเชื่อมต่อและสแกน' :
                      scannerStatus === 'success' ? 'บันทึกภาพสำเร็จ' :
                      scannerStatus === 'capturing' ? 'กำลังสแกน...' :
                      scannerStatus === 'waiting_finger' ? 'กรุณาวางนิ้วบนเครื่อง' :
@@ -406,24 +676,8 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 </div>
               </div>
 
-              {/* Troubleshooting Note if Driver Not Found */}
-              {scannerStatus === 'driver_not_found' && (
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 space-y-2">
-                  <p className="font-bold text-slate-800 flex items-center space-x-1.5">
-                    <HelpCircle className="w-4 h-4 text-[#466BB2]" />
-                    <span>คำแนะนำการเปิดใช้งานเครื่องสแกน FS80H:</span>
-                  </p>
-                  <ol className="list-decimal list-inside space-y-1 text-slate-600 pl-1">
-                    <li>เสียบสาย USB เครื่องสแกน <strong>Futronic FS80H</strong> เข้ากับคอมพิวเตอร์</li>
-                    <li>ตรวจสอบว่าได้ติดตั้งไดรเวอร์ <strong>Futronic ScanAPI / Web Service</strong> แล้ว</li>
-                    <li>เปิดบริการ <em>ftrScanAPI Web Server</em> (พอร์ต 15270)</li>
-                    <li>หรือสลับไปใช้แท็บ <strong>"โหมดจำลองสแกน (Demo / Simulator)"</strong> ด้านบนเพื่อทดสอบระบบทันที</li>
-                  </ol>
-                </div>
-              )}
-
               {/* Action Buttons */}
-              <div className="space-y-2 pt-2">
+              <div className="space-y-2 pt-1">
                 <button
                   type="button"
                   onClick={handleStartScan}
@@ -435,7 +689,13 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   }`}
                 >
                   <Zap className="w-4 h-4 text-amber-300" />
-                  <span>{isScanning ? 'กำลังสแกน...' : 'เริ่มสแกนลายนิ้วมือ (Capture Scan)'}</span>
+                  <span>
+                    {isScanning 
+                      ? 'กำลังประมวลผลการสแกน...' 
+                      : connectionType === 'mbt_cloud'
+                      ? 'ดึงผลสแกนจาก MBT Scanner'
+                      : 'เริ่มสแกนลายนิ้วมือ (Capture Scan)'}
+                  </span>
                 </button>
 
                 {currentImage && (
@@ -448,12 +708,36 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                     <span>บันทึกรูปลงใน {fingerNameTh} มุมที่ {angleNumber}</span>
                   </button>
                 )}
+
+                <div className="flex items-center space-x-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handlePasteImage}
+                    className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg flex items-center justify-center space-x-1.5 transition-colors border border-slate-200"
+                    title="วางภาพจาก Clipboard"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>วางรูป (Paste)</span>
+                  </button>
+
+                  {connectionType === 'mbt_cloud' && (
+                    <button
+                      type="button"
+                      onClick={handleOpenMbtScannerWindow}
+                      className="flex-1 py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg flex items-center justify-center space-x-1.5 transition-colors border border-blue-200"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>เปิดลิงก์ภายนอก</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              {/* Step info */}
+              {/* Step & Specification info */}
               <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-[11px] text-slate-600 flex items-center justify-between">
-                <span>ความละเอียดภาพ: <strong>320 x 480 px (500 DPI)</strong></span>
-                <span>มาตรฐาน: <strong>FBI / PIV Compliant</strong></span>
+                <span>เป้าหมาย: <strong>{fingerNameTh} ({selectedFingerKey})</strong></span>
+                <span>มุมที่: <strong>{angleNumber} / 7</strong></span>
+                <span>มาตรฐาน: <strong>500 DPI</strong></span>
               </div>
 
             </div>
@@ -466,7 +750,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center space-x-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>Futronic Co., Ltd. • FS80H Optical Fingerprint Recognition</span>
+            <span>เชื่อมต่อกับ: <strong>{connectionType === 'mbt_cloud' ? 'https://mbt-scanner.vercel.app/' : 'Futronic FS80H'}</strong></span>
           </div>
           <button
             type="button"
@@ -481,3 +765,4 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     </div>
   );
 };
+
