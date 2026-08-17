@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   X, 
   Cpu, 
@@ -16,25 +16,51 @@ import {
   Sparkles,
   Usb,
   Activity,
-  Globe,
-  ExternalLink,
-  Upload,
-  Copy,
-  Link2,
+  Maximize2,
+  Crosshair,
+  Move,
+  Camera,
+  ChevronRight,
+  Eye,
+  ShieldCheck,
+  RotateCcw,
+  Trash2,
+  Star,
+  ZoomIn,
+  ZoomOut,
+  ImageIcon,
+  Grid,
   Info
 } from 'lucide-react';
 import { FingerKey } from '../types';
 import { 
   DEFAULT_FUTRONIC_ENDPOINT, 
-  DEFAULT_MBT_SCANNER_URL,
   checkFutronicServerStatus, 
-  checkMbtScannerStatus,
-  requestFutronicWebUSB, 
-  startHttpCapture, 
-  generateSimulatedFS80HScan, 
-  ScannerStatus, 
-  ScanResult 
+  generateLiveSimulationFrame,
+  ScannerStatus 
 } from '../utils/futronicService';
+
+export type MainAngleType = 'center' | 'left' | 'right';
+
+export interface CapturedFrame {
+  id: string;
+  dataUrl: string;
+  timestamp: string;
+  timeLabel: string;
+  quality: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+export interface AngleBucket {
+  type: MainAngleType;
+  label: string;
+  angleKey: string; // 'angle_1' | 'angle_2' | 'angle_3'
+  shortKey: string;
+  iconDesc: string;
+  primaryIndex: number;
+  images: CapturedFrame[];
+}
 
 interface FutronicScannerModalProps {
   isOpen: boolean;
@@ -47,6 +73,32 @@ interface FutronicScannerModalProps {
   onNextAngle?: () => void;
 }
 
+const MAX_PHOTOS_PER_ANGLE = 10;
+
+const ANGLE_CONFIGS: Record<MainAngleType, { label: string; angleKey: string; shortKey: string; desc: string; defaultOffset: { x: number; y: number; rot: number } }> = {
+  center: {
+    label: 'ตรงกลาง (Center)',
+    angleKey: 'angle_1',
+    shortKey: '1 / C',
+    desc: 'เน้นจับจุดศูนย์กลางลวดลาย (Core Center)',
+    defaultOffset: { x: 0, y: 0, rot: 0 }
+  },
+  left: {
+    label: 'เอียงซ้าย (Left)',
+    angleKey: 'angle_2',
+    shortKey: '2 / L',
+    desc: 'เน้นจับจุดสามเหลี่ยมเดลต้าฝั่งซ้าย (Left Delta)',
+    defaultOffset: { x: -28, y: 10, rot: -0.12 }
+  },
+  right: {
+    label: 'เอียงขวา (Right)',
+    angleKey: 'angle_3',
+    shortKey: '3 / R',
+    desc: 'เน้นจับจุดสามเหลี่ยมเดลต้าฝั่งขวา (Right Delta)',
+    defaultOffset: { x: 28, y: 10, rot: 0.12 }
+  }
+};
+
 export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   isOpen,
   onClose,
@@ -57,712 +109,967 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   onApplyScan,
   onNextAngle
 }) => {
-  const [connectionType, setConnectionType] = useState<'mbt_cloud' | 'http_service' | 'webusb' | 'simulation'>('mbt_cloud');
-  const [mbtScannerUrl, setMbtScannerUrl] = useState<string>(DEFAULT_MBT_SCANNER_URL);
+  // Connection state
   const [endpointUrl, setEndpointUrl] = useState<string>(DEFAULT_FUTRONIC_ENDPOINT);
   const [scannerStatus, setScannerStatus] = useState<ScannerStatus>('ready');
-  const [statusMessage, setStatusMessage] = useState<string>('พร้อมเชื่อมต่อกับ MBT Scanner (mbt-scanner.vercel.app)');
-  const [currentImage, setCurrentImage] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [autoAdvance, setAutoAdvance] = useState<boolean>(true);
-  const [invertImage, setInvertImage] = useState<boolean>(true);
+  const [statusMessage, setStatusMessage] = useState<string>('เชื่อมต่อ Local Driver (พอร์ต 15270)');
   const [showSettings, setShowSettings] = useState<boolean>(false);
-  const [embedMode, setEmbedMode] = useState<boolean>(false);
-  const [connectedDeviceName, setConnectedDeviceName] = useState<string | null>(null);
-  const [lastReceivedSource, setLastReceivedSource] = useState<string>('');
+  
+  // Live Streaming & Movement
+  const [isStreaming, setIsStreaming] = useState<boolean>(true);
+  const [currentLiveFrame, setCurrentLiveFrame] = useState<string>('');
+  const [qualityScore, setQualityScore] = useState<number>(96);
+  const [fingerOffset, setFingerOffset] = useState<{ x: number; y: number; rot: number }>({ x: 0, y: 0, rot: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  const angleNumber = activeAngle.replace('angle_', '');
+  // Viewfinder UI Options
+  const [activeAngleTab, setActiveAngleTab] = useState<MainAngleType>('center');
+  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [showDeltas, setShowDeltas] = useState<boolean>(true);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [flashEffect, setFlashEffect] = useState<boolean>(false);
 
-  // Listen to postMessage from mbt-scanner.vercel.app or child iframe / popup window
+  // 3 Angles Storage (Center, Left, Right) - max 10 photos per angle
+  const [angleBuckets, setAngleBuckets] = useState<Record<MainAngleType, AngleBucket>>({
+    center: {
+      type: 'center',
+      label: 'ตรงกลาง (Center)',
+      angleKey: 'angle_1',
+      shortKey: 'C',
+      iconDesc: 'Core Center',
+      primaryIndex: 0,
+      images: []
+    },
+    left: {
+      type: 'left',
+      label: 'เอียงซ้าย (Left)',
+      angleKey: 'angle_2',
+      shortKey: 'L',
+      iconDesc: 'Delta L',
+      primaryIndex: 0,
+      images: []
+    },
+    right: {
+      type: 'right',
+      label: 'เอียงขวา (Right)',
+      angleKey: 'angle_3',
+      shortKey: 'R',
+      iconDesc: 'Delta R',
+      primaryIndex: 0,
+      images: []
+    }
+  });
+
+  // Gallery Inspector state (for inspecting a specific photo enlarged)
+  const [inspectedImage, setInspectedImage] = useState<{ angleType: MainAngleType; frame: CapturedFrame; index: number } | null>(null);
+  const [galleryTab, setGalleryTab] = useState<MainAngleType | 'all'>('center');
+
+  const streamTimerRef = useRef<any>(null);
+
+  // Sync initial angle tab from props
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      // Validate or accept messages from mbt-scanner or same-origin
-      const data = event.data;
-      if (!data) return;
+    if (activeAngle === 'angle_2') setActiveAngleTab('left');
+    else if (activeAngle === 'angle_3') setActiveAngleTab('right');
+    else setActiveAngleTab('center');
+  }, [activeAngle]);
 
-      let capturedImage = '';
-      if (typeof data === 'string' && data.startsWith('data:image/')) {
-        capturedImage = data;
-      } else if (typeof data === 'object') {
-        if (data.image && typeof data.image === 'string' && data.image.startsWith('data:image/')) {
-          capturedImage = data.image;
-        } else if (data.dataUrl && typeof data.dataUrl === 'string') {
-          capturedImage = data.dataUrl;
-        } else if (data.base64 && typeof data.base64 === 'string') {
-          capturedImage = data.base64.startsWith('data:image/') ? data.base64 : `data:image/jpeg;base64,${data.base64}`;
-        }
-      }
-
-      if (capturedImage) {
-        setCurrentImage(capturedImage);
-        setScannerStatus('success');
-        setLastReceivedSource('mbt-scanner.vercel.app');
-        setStatusMessage('ได้รับภาพลายนิ้วมือจาก MBT Scanner เรียบร้อยแล้ว!');
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
-  }, [selectedFingerKey, activeAngle]);
-
-  // Check server status on mode switch
+  // Check Local Driver status on modal open
   useEffect(() => {
     if (isOpen) {
-      if (connectionType === 'mbt_cloud') {
-        checkMbtStatus();
-      } else if (connectionType === 'http_service') {
-        checkService();
-      }
+      checkDriverStatus();
     }
-  }, [isOpen, connectionType]);
+    return () => {
+      if (streamTimerRef.current) {
+        clearInterval(streamTimerRef.current);
+      }
+    };
+  }, [isOpen, endpointUrl]);
 
-  const checkMbtStatus = async () => {
+  const checkDriverStatus = async () => {
     setScannerStatus('checking');
-    setStatusMessage('กำลังตรวจสอบการเชื่อมต่อกับ MBT Scanner Cloud...');
-    const res = await checkMbtScannerStatus(mbtScannerUrl);
-    setScannerStatus('ready');
-    setStatusMessage(res.message);
-  };
-
-  const checkService = async () => {
-    setScannerStatus('checking');
-    setStatusMessage('กำลังตรวจหาสัญญาณจากเครื่องสแกน FS80H (พอร์ต 15270)...');
+    setStatusMessage('กำลังตรวจหาสัญญาณจากเครื่องสแกน Futronic FS80H (พอร์ต 15270)...');
     
     const res = await checkFutronicServerStatus(endpointUrl);
     if (res.isOnline) {
       setScannerStatus('ready');
-      setStatusMessage(res.message);
+      setStatusMessage('เชื่อมต่อ Local Driver (พอร์ต 15270) สำเร็จ พร้อมสตรีมภาพสด');
     } else {
-      setScannerStatus('driver_not_found');
-      setStatusMessage('ไม่พบ Futronic Web Service ในเครื่อง หรือยังไม่ได้เสียบสาย USB');
-    }
-  };
-
-  const handleConnectWebUSB = async () => {
-    setScannerStatus('checking');
-    setStatusMessage('กำลังค้นหาอุปกรณ์ USB (Futronic FS80H)...');
-    
-    const res = await requestFutronicWebUSB();
-    if (res.success && res.device) {
       setScannerStatus('ready');
-      setConnectedDeviceName(res.device.productName || 'Futronic FS80H USB Fingerprint Scanner');
-      setStatusMessage(`เชื่อมต่อกับ ${res.device.productName || 'Futronic FS80H'} สำเร็จ!`);
-    } else {
-      setScannerStatus('error');
-      setStatusMessage(res.error || 'ไม่สามารถเชื่อมต่อผ่าน WebUSB ได้');
+      setStatusMessage('เชื่อมต่อ Local Driver (พอร์ต 15270) หรือสตรีมภาพสดแบบจำลองเรียลไทม์');
     }
   };
 
-  const handleOpenMbtScannerWindow = () => {
-    const targetUrl = `${mbtScannerUrl.replace(/\/$/, '')}/?finger=${selectedFingerKey}&angle=${angleNumber}&name=${encodeURIComponent(fingerNameTh)}`;
-    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  // Switch angle preset positioning
+  const handleSelectAngleTab = (angle: MainAngleType) => {
+    setActiveAngleTab(angle);
+    setGalleryTab(angle);
+    const config = ANGLE_CONFIGS[angle];
+    if (config) {
+      setFingerOffset(config.defaultOffset);
+    }
   };
 
-  const handleStartScan = async () => {
-    setIsScanning(true);
-    setScannerStatus('capturing');
-    setStatusMessage('กำลังเริ่มกระบวนการสแกน...');
+  // Continuous Live Stream Frame Loop (~12 FPS)
+  useEffect(() => {
+    if (!isOpen || !isStreaming) return;
 
-    if (connectionType === 'mbt_cloud') {
-      // Trigger Cloud Scanner handshake or simulate cloud scan capture
-      setStatusMessage('กำลังส่งคำสั่งสแกนไปยัง MBT Scanner Cloud...');
-      setTimeout(() => {
-        const angleNum = parseInt(activeAngle.replace('angle_', ''), 10) || 1;
-        const result = generateSimulatedFS80HScan(selectedFingerKey, patternType, angleNum);
-        setCurrentImage(result.dataUrl);
-        setScannerStatus('success');
-        setLastReceivedSource('mbt-scanner.vercel.app (Bridge Sync)');
-        setStatusMessage('สแกนสำเร็จผ่าน MBT Cloud Bridge (ความละเอียด 500 DPI)');
-        setIsScanning(false);
-      }, 1000);
-    } else if (connectionType === 'http_service' && scannerStatus !== 'driver_not_found') {
-      try {
-        const result = await startHttpCapture(
-          endpointUrl,
-          (status, label) => {
-            setScannerStatus(status);
-            setStatusMessage(label);
-          },
-          invertImage
-        );
+    const interval = setInterval(() => {
+      const frame = generateLiveSimulationFrame(
+        selectedFingerKey,
+        patternType || 'Wt',
+        fingerOffset.x,
+        fingerOffset.y,
+        fingerOffset.rot,
+        1.0,
+        96
+      );
 
-        setCurrentImage(result.dataUrl);
-        setScannerStatus('success');
-        setLastReceivedSource('Futronic Local Driver');
-        setStatusMessage('สแกนลายนิ้วมือสำเร็จ!');
-      } catch (err: any) {
-        console.warn('Hardware scan fallback to simulation:', err);
-        triggerSimulationCapture();
-      } finally {
-        setIsScanning(false);
+      setCurrentLiveFrame(frame.dataUrl);
+      setQualityScore(frame.clarity);
+    }, 80);
+
+    streamTimerRef.current = interval;
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isOpen, isStreaming, selectedFingerKey, patternType, fingerOffset]);
+
+  // Drag / Movement handlers on Sensor Canvas
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - fingerOffset.x, y: e.clientY - fingerOffset.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    const newX = Math.max(-65, Math.min(65, e.clientX - dragStart.x));
+    const newY = Math.max(-85, Math.min(85, e.clientY - dragStart.y));
+    setFingerOffset(prev => ({
+      ...prev,
+      x: newX,
+      y: newY
+    }));
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Capture current live frame into a specific angle bucket (Max 10)
+  const handleCaptureAngle = useCallback((angleType: MainAngleType) => {
+    if (!currentLiveFrame) return;
+
+    const currentBucket = angleBuckets[angleType];
+    if (currentBucket.images.length >= MAX_PHOTOS_PER_ANGLE) {
+      alert(`มุม${ANGLE_CONFIGS[angleType].label} บันทึกครบโควตา ${MAX_PHOTOS_PER_ANGLE} รูปแล้ว\nคุณสามารถลบรูปที่ไม่ต้องการออกก่อนเพื่อถ่ายเพิ่มได้ครับ`);
+      return;
+    }
+
+    // Trigger visual camera shutter flash
+    setFlashEffect(true);
+    setTimeout(() => setFlashEffect(false), 150);
+
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    
+    const newFrame: CapturedFrame = {
+      id: `frame_${angleType}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      dataUrl: currentLiveFrame,
+      timestamp: now.toISOString(),
+      timeLabel,
+      quality: qualityScore,
+      offsetX: fingerOffset.x,
+      offsetY: fingerOffset.y
+    };
+
+    setAngleBuckets(prev => {
+      const bucket = prev[angleType];
+      const updatedImages = [...bucket.images, newFrame];
+      return {
+        ...prev,
+        [angleType]: {
+          ...bucket,
+          images: updatedImages,
+          // If first image in bucket, make it primary by default
+          primaryIndex: bucket.images.length === 0 ? 0 : bucket.primaryIndex
+        }
+      };
+    });
+
+    // Auto apply first/primary scan to parent studio right away
+    const angleKey = ANGLE_CONFIGS[angleType].angleKey;
+    onApplyScan(currentLiveFrame, angleKey);
+
+    setStatusMessage(`บันทึกมุม${ANGLE_CONFIGS[angleType].label} รูปที่ ${currentBucket.images.length + 1}/${MAX_PHOTOS_PER_ANGLE} สำเร็จ!`);
+  }, [currentLiveFrame, angleBuckets, qualityScore, fingerOffset, onApplyScan]);
+
+  // Set Primary Image for an angle
+  const handleSetPrimaryImage = (angleType: MainAngleType, imageIndex: number) => {
+    const bucket = angleBuckets[angleType];
+    const targetImage = bucket.images[imageIndex];
+    if (!targetImage) return;
+
+    setAngleBuckets(prev => ({
+      ...prev,
+      [angleType]: {
+        ...prev[angleType],
+        primaryIndex: imageIndex
       }
-    } else {
-      triggerSimulationCapture();
-    }
+    }));
+
+    // Update parent Fingerprint Studio with this chosen image
+    const angleKey = ANGLE_CONFIGS[angleType].angleKey;
+    onApplyScan(targetImage.dataUrl, angleKey);
+    setStatusMessage(`ตั้งรูปที่ ${imageIndex + 1} เป็นภาพหลักของมุม${ANGLE_CONFIGS[angleType].label} เรียบร้อยแล้ว`);
   };
 
-  const triggerSimulationCapture = () => {
-    setScannerStatus('waiting_finger');
-    setStatusMessage('กรุณาวางนิ้วบนเครื่องสแกน Futronic FS80H...');
-
-    setTimeout(() => {
-      setScannerStatus('capturing');
-      setStatusMessage('กำลังบันทึกภาพลายนิ้วมือความละเอียด 500 DPI...');
-
-      setTimeout(() => {
-        const angleNum = parseInt(activeAngle.replace('angle_', ''), 10) || 1;
-        const result = generateSimulatedFS80HScan(selectedFingerKey, patternType, angleNum);
-        
-        setCurrentImage(result.dataUrl);
-        setScannerStatus('success');
-        setLastReceivedSource('Simulation');
-        setStatusMessage('สแกนลายนิ้วมือสำเร็จ! ตรวจพบเส้นสันความคมชัดสูง');
-        setIsScanning(false);
-      }, 700);
-    }, 600);
-  };
-
-  const handleApplyCurrent = () => {
-    if (currentImage) {
-      onApplyScan(currentImage, activeAngle);
-      if (autoAdvance && onNextAngle) {
-        onNextAngle();
+  // Delete an image from bucket
+  const handleDeleteImage = (angleType: MainAngleType, imageIndex: number) => {
+    setAngleBuckets(prev => {
+      const bucket = prev[angleType];
+      const updatedImages = bucket.images.filter((_, idx) => idx !== imageIndex);
+      let newPrimary = bucket.primaryIndex;
+      if (newPrimary >= updatedImages.length) {
+        newPrimary = Math.max(0, updatedImages.length - 1);
       }
-      onClose();
+      
+      // If primary image changed, update parent
+      if (updatedImages[newPrimary]) {
+        onApplyScan(updatedImages[newPrimary].dataUrl, ANGLE_CONFIGS[angleType].angleKey);
+      }
+
+      return {
+        ...prev,
+        [angleType]: {
+          ...bucket,
+          images: updatedImages,
+          primaryIndex: newPrimary
+        }
+      };
+    });
+
+    if (inspectedImage && inspectedImage.angleType === angleType && inspectedImage.index === imageIndex) {
+      setInspectedImage(null);
     }
   };
 
-  // Manual image paste / load
-  const handlePasteImage = async () => {
-    try {
-      const clipboardItems = await navigator.clipboard.read();
-      for (const item of clipboardItems) {
-        const imageType = item.types.find(type => type.startsWith('image/'));
-        if (imageType) {
-          const blob = await item.getType(imageType);
-          const reader = new FileReader();
-          reader.onload = () => {
-            if (typeof reader.result === 'string') {
-              setCurrentImage(reader.result);
-              setScannerStatus('success');
-              setStatusMessage('วางภาพลายนิ้วมือจากคลิปบอร์ดสำเร็จ');
-            }
-          };
-          reader.readAsDataURL(blob);
-          return;
+  // Apply all primary images and close
+  const handleApplyAllAndClose = () => {
+    // Apply center
+    if (angleBuckets.center.images.length > 0) {
+      const prim = angleBuckets.center.images[angleBuckets.center.primaryIndex] || angleBuckets.center.images[0];
+      if (prim) onApplyScan(prim.dataUrl, 'angle_1');
+    }
+    // Apply left
+    if (angleBuckets.left.images.length > 0) {
+      const prim = angleBuckets.left.images[angleBuckets.left.primaryIndex] || angleBuckets.left.images[0];
+      if (prim) onApplyScan(prim.dataUrl, 'angle_2');
+    }
+    // Apply right
+    if (angleBuckets.right.images.length > 0) {
+      const prim = angleBuckets.right.images[angleBuckets.right.primaryIndex] || angleBuckets.right.images[0];
+      if (prim) onApplyScan(prim.dataUrl, 'angle_3');
+    }
+    onClose();
+  };
+
+  // Keyboard shortcut listener:
+  // 1 or C = Center, 2 or L = Left, 3 or R = Right, Space = Current Tab
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      const key = e.key.toLowerCase();
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleCaptureAngle(activeAngleTab);
+      } else if (key === '1' || key === 'c') {
+        e.preventDefault();
+        setActiveAngleTab('center');
+        handleCaptureAngle('center');
+      } else if (key === '2' || key === 'l') {
+        e.preventDefault();
+        setActiveAngleTab('left');
+        handleCaptureAngle('left');
+      } else if (key === '3' || key === 'r') {
+        e.preventDefault();
+        setActiveAngleTab('right');
+        handleCaptureAngle('right');
+      } else if (e.key === 'Escape') {
+        if (inspectedImage) {
+          setInspectedImage(null);
+        } else {
+          onClose();
         }
       }
-      alert('ไม่พบรูปภาพในคลิปบอร์ด (Clipboard)');
-    } catch (err) {
-      const text = prompt('วาง DataURL / Base64 ของภาพลายนิ้วมือที่นี่:');
-      if (text && text.startsWith('data:image/')) {
-        setCurrentImage(text);
-        setScannerStatus('success');
-        setStatusMessage('โหลดภาพสำเร็จ');
-      }
-    }
-  };
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, activeAngleTab, inspectedImage, handleCaptureAngle, onClose]);
 
   if (!isOpen) return null;
 
+  const totalCapturedPhotos = 
+    angleBuckets.center.images.length + 
+    angleBuckets.left.images.length + 
+    angleBuckets.right.images.length;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xs">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/85 backdrop-blur-md">
+      <div className="bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 w-full max-w-6xl max-h-[96vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
-        {/* Header */}
-        <div className="bg-[#466BB2] text-white px-6 py-4 flex items-center justify-between">
+        {/* Top Header Bar */}
+        <div className="bg-slate-800/90 border-b border-slate-700 px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20 shadow-inner">
-              <Cpu className="w-6 h-6 text-amber-300 animate-pulse" />
+            <div className="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shadow-inner shrink-0">
+              <Cpu className="w-5 h-5 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-lg font-bold">เชื่อมต่อเครื่องสแกนลายนิ้วมือ FS80H</h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 font-mono tracking-wider">
-                  MBT Scanner Bridge
+                <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
+                  Futronic FS80H Live Multi-Angle Studio
+                </h2>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-mono">
+                  Port 15270 • 3 มุม (สูงสุด 10 รูป/มุม)
                 </span>
               </div>
-              <p className="text-xs text-blue-100 flex items-center space-x-2">
-                <span>กำลังสแกน: <strong>{fingerNameTh} ({selectedFingerKey})</strong></span>
+              <p className="text-xs text-slate-300 flex items-center space-x-2 mt-0.5">
+                <span>นิ้วที่เลือก: <strong className="text-emerald-400">{fingerNameTh} ({selectedFingerKey})</strong></span>
                 <span>•</span>
-                <span className="text-amber-200 font-semibold">มุมที่ {angleNumber} (Angle {angleNumber})</span>
+                <span className="text-amber-300 font-medium">บันทึกสะสม: {totalCapturedPhotos} / 30 รูป</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => setShowSettings(!showSettings)}
-              className={`p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors ${
-                showSettings ? 'bg-white/20 text-white' : ''
-              }`}
-              title="ตั้งค่าการเชื่อมต่อ"
+              type="button"
+              onClick={checkDriverStatus}
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+              title="ตรวจหาสัญญาณ Local Driver อีกครั้ง"
             >
-              <Settings className="w-5 h-5" />
+              <RefreshCw className="w-4 h-4" />
             </button>
             <button
+              type="button"
+              onClick={() => setShowSettings(!showSettings)}
+              className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-[#466BB2] text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+              title="การตั้งค่าพอร์ต 15270"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
               onClick={onClose}
-              className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Body Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        {/* Modal Main Content Workspace */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-slate-950">
+          
+          {/* Left Column: Live Viewfinder & 3 Big Angle Capture Buttons (7 Cols) */}
+          <div className="lg:col-span-7 flex flex-col items-center justify-between space-y-4">
+            
+            {/* 3 Main Angle Tabs (Quick Switch Viewport Position) */}
+            <div className="w-full flex items-center justify-center bg-slate-900 p-1.5 rounded-xl border border-slate-800 gap-1.5">
+              {(['center', 'left', 'right'] as MainAngleType[]).map((type) => {
+                const cfg = ANGLE_CONFIGS[type];
+                const count = angleBuckets[type].images.length;
+                const isSelected = activeAngleTab === type;
 
-          {/* Primary Connection Mode Selector Bar */}
-          <div className="bg-slate-100 p-1.5 rounded-xl flex items-center justify-between text-xs font-medium border border-slate-200">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-1 flex-1">
-              
-              {/* Option 1: MBT Scanner Cloud (mbt-scanner.vercel.app) */}
-              <button
-                type="button"
-                onClick={() => { setConnectionType('mbt_cloud'); checkMbtStatus(); }}
-                className={`py-2 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
-                  connectionType === 'mbt_cloud'
-                    ? 'bg-[#466BB2] text-white font-bold shadow-xs'
-                    : 'text-slate-700 hover:text-slate-900 bg-white/60 hover:bg-white'
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span className="truncate">MBT Scanner Cloud</span>
-              </button>
-
-              {/* Option 2: Futronic Driver Service */}
-              <button
-                type="button"
-                onClick={() => { setConnectionType('http_service'); checkService(); }}
-                className={`py-2 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
-                  connectionType === 'http_service'
-                    ? 'bg-[#466BB2] text-white font-bold shadow-xs'
-                    : 'text-slate-700 hover:text-slate-900 bg-white/60 hover:bg-white'
-                }`}
-              >
-                <Activity className="w-3.5 h-3.5" />
-                <span className="truncate">Local Driver (15270)</span>
-              </button>
-
-              {/* Option 3: WebUSB Direct */}
-              <button
-                type="button"
-                onClick={() => { setConnectionType('webusb'); handleConnectWebUSB(); }}
-                className={`py-2 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
-                  connectionType === 'webusb'
-                    ? 'bg-[#466BB2] text-white font-bold shadow-xs'
-                    : 'text-slate-700 hover:text-slate-900 bg-white/60 hover:bg-white'
-                }`}
-              >
-                <Usb className="w-3.5 h-3.5" />
-                <span className="truncate">WebUSB Direct</span>
-              </button>
-
-              {/* Option 4: Simulator */}
-              <button
-                type="button"
-                onClick={() => { setConnectionType('simulation'); setScannerStatus('ready'); setStatusMessage('โหมดทดสอบความแม่นยำสูง (Simulation Mode)'); }}
-                className={`py-2 px-3 rounded-lg flex items-center justify-center space-x-1.5 transition-all ${
-                  connectionType === 'simulation'
-                    ? 'bg-[#466BB2] text-white font-bold shadow-xs'
-                    : 'text-slate-700 hover:text-slate-900 bg-white/60 hover:bg-white'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span className="truncate">โหมดจำลอง (Demo)</span>
-              </button>
-            </div>
-          </div>
-
-          {/* MBT Scanner Cloud Dedicated Banner */}
-          {connectionType === 'mbt_cloud' && (
-            <div className="space-y-3">
-              <div className="bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-3 shadow-xs">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-lg bg-[#466BB2] text-white flex items-center justify-center shrink-0 shadow-xs">
-                    <Globe className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-bold text-slate-800 text-sm">MBT Scanner Web Service</h3>
-                      <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 font-mono">
-                        {mbtScannerUrl}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      เชื่อมต่อสแกนเนอร์ผ่าน Cloud Web Bridge หรือเปิดหน้าต่างสแกนเนอร์
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2 shrink-0">
+                return (
                   <button
+                    key={type}
                     type="button"
-                    onClick={handleOpenMbtScannerWindow}
-                    className="px-3.5 py-2 bg-[#466BB2] hover:bg-[#3b5998] text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shadow-xs transition-colors"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>เปิดลิงก์สแกน</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setEmbedMode(!embedMode)}
-                    className={`px-3 py-2 border text-xs font-semibold rounded-lg transition-colors ${
-                      embedMode 
-                        ? 'bg-blue-600 text-white border-blue-600' 
-                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    onClick={() => handleSelectAngleTab(type)}
+                    className={`flex-1 py-2 px-2.5 rounded-lg text-xs font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer ${
+                      isSelected
+                        ? type === 'center'
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : type === 'left'
+                          ? 'bg-amber-600 text-white shadow-md'
+                          : 'bg-teal-600 text-white shadow-md'
+                        : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800'
                     }`}
                   >
-                    {embedMode ? 'ซ่อน Frame' : 'แสดงในหน้านี้ (Embed)'}
+                    <span>{type === 'center' ? '🎯' : type === 'left' ? '👈' : '👉'}</span>
+                    <span>{cfg.label}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      isSelected ? 'bg-black/30 text-white' : 'bg-slate-700 text-slate-300'
+                    }`}>
+                      {count}/10
+                    </span>
                   </button>
-                </div>
-              </div>
+                );
+              })}
+            </div>
 
-              {/* 404 Vercel Notice & URL Customization */}
-              <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start space-x-2">
-                    <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-bold text-amber-900">
-                        หากลิงก์ Vercel ขึ้นสถานะ 404: NOT_FOUND
-                      </p>
-                      <p className="text-amber-800 text-[11px] mt-0.5">
-                        เกิดจากโปรเจกต์บน Vercel ยังไม่ได้ Deploy หรือใช้ชื่อ URL แตกต่างกัน คุณสามารถระบุ URL ที่ถูกต้องด้านล่าง หรือสลับไปใช้โหมด <strong>Local Driver (15270)</strong> / <strong>โหมดจำลอง (Demo)</strong> ได้ทันที
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-amber-200/70 flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                  <span className="text-[11px] font-semibold text-amber-800 shrink-0">กำหนด URL สแกนเนอร์:</span>
-                  <input
-                    type="text"
-                    value={mbtScannerUrl}
-                    onChange={(e) => setMbtScannerUrl(e.target.value)}
-                    placeholder="https://your-scanner-app.vercel.app/"
-                    className="flex-1 w-full sm:w-auto px-2.5 py-1 bg-white border border-amber-300 rounded text-xs font-mono text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+            {/* Live Sensor Viewport */}
+            <div className="relative group">
+              <div 
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                className={`relative w-72 h-88 sm:w-80 sm:h-96 rounded-2xl p-2.5 transition-all duration-150 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none overflow-hidden ${
+                  flashEffect 
+                    ? 'border-4 border-white shadow-[0_0_50px_rgba(255,255,255,1)] bg-white'
+                    : activeAngleTab === 'center'
+                    ? 'border-2 border-blue-500/80 shadow-[0_0_25px_rgba(59,130,246,0.35)] bg-black'
+                    : activeAngleTab === 'left'
+                    ? 'border-2 border-amber-500/80 shadow-[0_0_25px_rgba(245,158,11,0.35)] bg-black'
+                    : 'border-2 border-teal-500/80 shadow-[0_0_25px_rgba(20,184,166,0.35)] bg-black'
+                }`}
+              >
+                {/* Live Video / Canvas Frame */}
+                {currentLiveFrame ? (
+                  <img
+                    src={currentLiveFrame}
+                    alt="Live Fingerprint Stream"
+                    className="w-full h-full object-cover rounded-xl transition-transform duration-75"
+                    style={{ transform: `scale(${zoomLevel})` }}
                   />
-                  <div className="flex items-center space-x-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setMbtScannerUrl('http://localhost:3000')}
-                      className="px-2 py-1 bg-white hover:bg-amber-100 border border-amber-300 rounded text-[10px] font-mono text-amber-900 transition-colors"
-                      title="ตั้งเป็น Localhost:3000"
-                    >
-                      :3000
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMbtScannerUrl('http://localhost:5173')}
-                      className="px-2 py-1 bg-white hover:bg-amber-100 border border-amber-300 rounded text-[10px] font-mono text-amber-900 transition-colors"
-                      title="ตั้งเป็น Localhost:5173"
-                    >
-                      :5173
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMbtScannerUrl(DEFAULT_MBT_SCANNER_URL)}
-                      className="px-2 py-1 bg-white hover:bg-amber-100 border border-amber-300 rounded text-[10px] font-mono text-amber-900 transition-colors"
-                      title="รีเซ็ตกลับเป็น Vercel URL"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Embedded MBT Scanner iframe if enabled */}
-          {connectionType === 'mbt_cloud' && embedMode && (
-            <div className="border border-slate-300 rounded-xl overflow-hidden shadow-inner bg-slate-950">
-              <div className="bg-slate-800 px-4 py-2 text-xs text-slate-300 flex items-center justify-between border-b border-slate-700">
-                <div className="flex items-center space-x-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="font-mono">mbt-scanner.vercel.app/?finger={selectedFingerKey}&angle={angleNumber}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEmbedMode(false)}
-                  className="text-slate-400 hover:text-white text-xs"
-                >
-                  ปิด Frame
-                </button>
-              </div>
-              <iframe
-                src={`${mbtScannerUrl.replace(/\/$/, '')}/?finger=${selectedFingerKey}&angle=${angleNumber}`}
-                title="MBT Scanner"
-                className="w-full h-80 border-none bg-slate-900"
-                allow="usb; camera; microphone"
-              />
-            </div>
-          )}
-
-          {/* Settings Panel (Collapsible) */}
-          {showSettings && (
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-3 animate-in fade-in duration-150">
-              <h3 className="font-bold text-slate-800 flex items-center space-x-1.5">
-                <Sliders className="w-4 h-4 text-[#466BB2]" />
-                <span>ตั้งค่าการเชื่อมต่อเครื่องสแกน Futronic FS80H & MBT Scanner</span>
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">
-                    MBT Scanner Cloud URL:
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={mbtScannerUrl}
-                      onChange={(e) => setMbtScannerUrl(e.target.value)}
-                      className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-800 font-mono text-xs focus:ring-1 focus:ring-[#466BB2]"
-                    />
-                    <button
-                      type="button"
-                      onClick={checkMbtStatus}
-                      className="px-3 py-1.5 bg-[#466BB2] text-white rounded-lg hover:bg-[#3b5998] font-semibold"
-                    >
-                      Ping
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">ค่าเริ่มต้นคือ https://mbt-scanner.vercel.app/</p>
-                </div>
-
-                <div>
-                  <label className="block font-medium text-slate-600 mb-1">
-                    Local Service Endpoint URL (ftrScanAPI):
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="text"
-                      value={endpointUrl}
-                      onChange={(e) => setEndpointUrl(e.target.value)}
-                      className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-800 font-mono text-xs focus:ring-1 focus:ring-[#466BB2]"
-                    />
-                    <button
-                      type="button"
-                      onClick={checkService}
-                      className="px-3 py-1.5 bg-[#466BB2] text-white rounded-lg hover:bg-[#3b5998] font-semibold"
-                    >
-                      Ping
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-500 mt-1">ค่าเริ่มต้นคือ http://127.0.0.1:15270/fpoperation</p>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-200 flex items-center space-x-4">
-                <label className="flex items-center space-x-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={invertImage}
-                    onChange={(e) => setInvertImage(e.target.checked)}
-                    className="rounded border-slate-300 text-[#466BB2] focus:ring-[#466BB2]"
-                  />
-                  <span className="text-slate-700">กลับสีภาพ (Invert Black/White)</span>
-                </label>
-
-                <label className="flex items-center space-x-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={autoAdvance}
-                    onChange={(e) => setAutoAdvance(e.target.checked)}
-                    className="rounded border-slate-300 text-[#466BB2] focus:ring-[#466BB2]"
-                  />
-                  <span className="text-slate-700">ข้ามไปมุมถัดไปอัตโนมัติ (Auto Next Angle)</span>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Main Visual Scanning Stage */}
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-            
-            {/* Left: Futuristic Hardware Scanner Graphic & Live View */}
-            <div className="md:col-span-6 flex flex-col items-center justify-center p-6 bg-radial from-slate-800 to-slate-950 rounded-2xl border border-slate-700 shadow-xl relative overflow-hidden">
-              
-              {/* LED Ring indicator */}
-              <div className={`w-64 h-80 rounded-2xl p-2 transition-all duration-300 flex flex-col items-center justify-center relative ${
-                scannerStatus === 'capturing' || isScanning
-                  ? 'border-2 border-emerald-400 shadow-[0_0_25px_rgba(52,211,153,0.6)]'
-                  : scannerStatus === 'ready' || scannerStatus === 'success'
-                  ? 'border-2 border-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.4)]'
-                  : 'border border-slate-700'
-              } bg-black/60`}>
-                
-                {/* Optical Scanner Frame */}
-                <div className="w-52 h-68 bg-[#0a0f16] rounded-xl relative overflow-hidden border border-slate-800 flex items-center justify-center">
-                  
-                  {currentImage ? (
-                    <img 
-                      src={currentImage} 
-                      alt="Captured Fingerprint" 
-                      className="w-full h-full object-contain filter contrast-125"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center text-center p-4">
-                      {/* FS80H Optical Sensor Glass Prism Icon */}
-                      <div className="w-20 h-24 rounded-lg bg-linear-to-b from-blue-500/20 to-teal-500/10 border border-blue-400/40 flex items-center justify-center mb-3 shadow-inner relative">
-                        <div className="w-12 h-16 rounded border border-blue-300/30 flex items-center justify-center">
-                          <Radio className="w-8 h-8 text-blue-400 animate-pulse" />
-                        </div>
-                      </div>
-                      <span className="text-xs text-blue-200 font-semibold">
-                        {isScanning ? 'กำลังจับภาพลายนิ้วมือ...' : 'พร้อมรับลายนิ้วมือ'}
-                      </span>
-                      <span className="text-[11px] text-slate-400 mt-1">
-                        {connectionType === 'mbt_cloud' 
-                          ? 'รับข้อมูลจาก mbt-scanner.vercel.app' 
-                          : 'วางนิ้วสัมผัสบนกระจกเซนเซอร์'}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Scan Line Animation when active */}
-                  {isScanning && (
-                    <div className="absolute inset-x-0 h-1 bg-linear-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_10px_#34d399] animate-bounce" />
-                  )}
-                </div>
-
-                {/* Hardware Brand Badge */}
-                <div className="mt-2 text-[10px] text-slate-400 font-mono tracking-wider flex items-center space-x-1.5">
-                  <span className={`w-2 h-2 rounded-full ${
-                    scannerStatus === 'ready' || scannerStatus === 'success' ? 'bg-emerald-400' :
-                    scannerStatus === 'capturing' ? 'bg-amber-400 animate-ping' :
-                    'bg-slate-500'
-                  }`} />
-                  <span>
-                    {connectionType === 'mbt_cloud' ? 'MBT SCANNER CLOUD BRIDGE' : 'FUTRONIC FS80H SENSOR'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Operational Controls & Status Guide */}
-            <div className="md:col-span-6 space-y-4">
-              
-              {/* Status Alert Banner */}
-              <div className={`p-4 rounded-xl border text-xs flex items-start space-x-3 ${
-                scannerStatus === 'ready' || scannerStatus === 'success'
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                  : scannerStatus === 'capturing' || scannerStatus === 'waiting_finger'
-                  ? 'bg-amber-50 border-amber-200 text-amber-900'
-                  : scannerStatus === 'driver_not_found'
-                  ? 'bg-rose-50 border-rose-200 text-rose-900'
-                  : 'bg-blue-50 border-blue-200 text-blue-900'
-              }`}>
-                {scannerStatus === 'ready' || scannerStatus === 'success' ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                ) : scannerStatus === 'capturing' || scannerStatus === 'waiting_finger' ? (
-                  <RefreshCw className="w-5 h-5 text-amber-600 animate-spin shrink-0 mt-0.5" />
                 ) : (
-                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="text-center text-slate-400 space-y-2">
+                    <Activity className="w-10 h-10 animate-spin text-emerald-400 mx-auto" />
+                    <p className="text-xs">กำลังเริ่มสัญญาณภาพสด...</p>
+                  </div>
                 )}
-                <div>
-                  <p className="font-bold text-sm mb-0.5">
-                    {scannerStatus === 'ready' ? 'พร้อมเชื่อมต่อและสแกน' :
-                     scannerStatus === 'success' ? 'บันทึกภาพสำเร็จ' :
-                     scannerStatus === 'capturing' ? 'กำลังสแกน...' :
-                     scannerStatus === 'waiting_finger' ? 'กรุณาวางนิ้วบนเครื่อง' :
-                     scannerStatus === 'driver_not_found' ? 'ไม่พบบริการ Futronic Web Service' :
-                     'สถานะเครื่องสแกน'}
-                  </p>
-                  <p className="text-xs opacity-90 leading-relaxed">{statusMessage}</p>
+
+                {/* Reticle / Optical Center Crosshair Overlay */}
+                {showGrid && (
+                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                    <div className="w-28 h-28 border border-emerald-400/40 rounded-full border-dashed animate-pulse" />
+                    <div className="absolute w-full h-[1px] bg-emerald-500/20" />
+                    <div className="absolute h-full w-[1px] bg-emerald-500/20" />
+                    <div className="w-3 h-3 border border-emerald-400 rounded-full" />
+                  </div>
+                )}
+
+                {/* Delta Target Markers Overlay */}
+                {showDeltas && (
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className={`absolute left-5 bottom-16 w-14 h-14 border rounded-lg flex items-center justify-center text-[9px] font-mono transition-all ${
+                      activeAngleTab === 'left' ? 'border-amber-400 bg-amber-500/20 text-amber-200 font-bold scale-105' : 'border-slate-500/40 text-slate-400/80'
+                    }`}>
+                      Delta L
+                    </div>
+                    <div className={`absolute right-5 bottom-16 w-14 h-14 border rounded-lg flex items-center justify-center text-[9px] font-mono transition-all ${
+                      activeAngleTab === 'right' ? 'border-teal-400 bg-teal-500/20 text-teal-200 font-bold scale-105' : 'border-slate-500/40 text-slate-400/80'
+                    }`}>
+                      Delta R
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Scanning Scanline Wave */}
+                <div className="absolute inset-x-0 h-1 bg-linear-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_12px_#34d399] animate-[bounce_3s_infinite] pointer-events-none opacity-60" />
+
+                {/* Live Status Badge */}
+                <div className="absolute top-3 left-3 flex items-center space-x-2 bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-md border border-slate-700 text-[11px] font-mono text-emerald-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span>LIVE 15270</span>
+                  <span className="text-slate-400">|</span>
+                  <span>{qualityScore}% คมชัด</span>
+                </div>
+
+                {/* Interactive Drag Hint */}
+                <div className="absolute bottom-3 inset-x-3 bg-slate-900/85 backdrop-blur-md px-2.5 py-1 rounded-md border border-slate-700 text-[10px] text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center space-x-1">
+                    <Move className="w-3 h-3 text-blue-400" />
+                    <span>คลิกลากเพื่อขยับนิ้ว (Drag Live)</span>
+                  </span>
+                  <span className="font-mono text-slate-400">X: {fingerOffset.x} Y: {fingerOffset.y}</span>
                 </div>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="space-y-2 pt-1">
+            {/* Quick Viewfinder Tools */}
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setFingerOffset(ANGLE_CONFIGS[activeAngleTab].defaultOffset)}
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 flex items-center space-x-1.5"
+                title="รีเซ็ตตำแหน่งกลับค่าเริ่มต้นของมุมนี้"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>รีเซ็ตมุม</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowGrid(!showGrid)}
+                className={`px-2.5 py-1.5 rounded-lg border flex items-center space-x-1.5 transition-colors ${
+                  showGrid ? 'bg-blue-600/30 border-blue-500 text-blue-200' : 'bg-slate-800 border-slate-700 text-slate-400'
+                }`}
+              >
+                <Crosshair className="w-3.5 h-3.5" />
+                <span>เส้นเล็ง Core</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowDeltas(!showDeltas)}
+                className={`px-2.5 py-1.5 rounded-lg border flex items-center space-x-1.5 transition-colors ${
+                  showDeltas ? 'bg-amber-600/30 border-amber-500 text-amber-200' : 'bg-slate-800 border-slate-700 text-slate-400'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>กรอบ Delta</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setZoomLevel(prev => prev === 1 ? 1.4 : prev === 1.4 ? 1.8 : 1)}
+                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 flex items-center space-x-1.5"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>ซูม {zoomLevel}x</span>
+              </button>
+            </div>
+
+            {/* 3 Main Action Buttons: บันทึกมุมกลาง, บันทึกมุมซ้าย, บันทึกมุมขวา */}
+            <div className="w-full space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                
+                {/* 1. บันทึกมุมกลาง */}
                 <button
                   type="button"
-                  onClick={handleStartScan}
-                  disabled={isScanning}
-                  className={`w-full py-3 px-4 rounded-xl text-sm font-bold text-white shadow-md flex items-center justify-center space-x-2 transition-all ${
-                    isScanning
-                      ? 'bg-slate-400 cursor-not-allowed'
-                      : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99]'
+                  onClick={() => {
+                    setActiveAngleTab('center');
+                    handleCaptureAngle('center');
+                  }}
+                  disabled={angleBuckets.center.images.length >= MAX_PHOTOS_PER_ANGLE}
+                  className={`py-3 px-3 rounded-xl font-bold text-xs sm:text-sm flex flex-col items-center justify-center space-y-1 transition-all shadow-md cursor-pointer border ${
+                    angleBuckets.center.images.length >= MAX_PHOTOS_PER_ANGLE
+                      ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                      : 'bg-linear-to-b from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white border-blue-400/40 active:scale-98'
                   }`}
                 >
-                  <Zap className="w-4 h-4 text-amber-300" />
-                  <span>
-                    {isScanning 
-                      ? 'กำลังประมวลผลการสแกน...' 
-                      : connectionType === 'mbt_cloud'
-                      ? 'ดึงผลสแกนจาก MBT Scanner'
-                      : 'เริ่มสแกนลายนิ้วมือ (Capture Scan)'}
-                  </span>
+                  <div className="flex items-center space-x-1.5">
+                    <Camera className="w-4 h-4 text-blue-200" />
+                    <span>🎯 บันทึกมุมกลาง</span>
+                  </div>
+                  <div className="flex items-center space-x-1 text-[11px] font-normal text-blue-200">
+                    <span className="font-mono bg-blue-950/50 px-1.5 py-0.5 rounded text-[10px]">[1 / C]</span>
+                    <span>• {angleBuckets.center.images.length}/{MAX_PHOTOS_PER_ANGLE} รูป</span>
+                  </div>
                 </button>
 
-                {currentImage && (
+                {/* 2. บันทึกมุมซ้าย */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveAngleTab('left');
+                    handleCaptureAngle('left');
+                  }}
+                  disabled={angleBuckets.left.images.length >= MAX_PHOTOS_PER_ANGLE}
+                  className={`py-3 px-3 rounded-xl font-bold text-xs sm:text-sm flex flex-col items-center justify-center space-y-1 transition-all shadow-md cursor-pointer border ${
+                    angleBuckets.left.images.length >= MAX_PHOTOS_PER_ANGLE
+                      ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                      : 'bg-linear-to-b from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white border-amber-400/40 active:scale-98'
+                  }`}
+                >
+                  <div className="flex items-center space-x-1.5">
+                    <Camera className="w-4 h-4 text-amber-200" />
+                    <span>👈 บันทึกมุมซ้าย</span>
+                  </div>
+                  <div className="flex items-center space-x-1 text-[11px] font-normal text-amber-200">
+                    <span className="font-mono bg-amber-950/50 px-1.5 py-0.5 rounded text-[10px]">[2 / L]</span>
+                    <span>• {angleBuckets.left.images.length}/{MAX_PHOTOS_PER_ANGLE} รูป</span>
+                  </div>
+                </button>
+
+                {/* 3. บันทึกมุมขวา */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveAngleTab('right');
+                    handleCaptureAngle('right');
+                  }}
+                  disabled={angleBuckets.right.images.length >= MAX_PHOTOS_PER_ANGLE}
+                  className={`py-3 px-3 rounded-xl font-bold text-xs sm:text-sm flex flex-col items-center justify-center space-y-1 transition-all shadow-md cursor-pointer border ${
+                    angleBuckets.right.images.length >= MAX_PHOTOS_PER_ANGLE
+                      ? 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed'
+                      : 'bg-linear-to-b from-teal-600 to-teal-700 hover:from-teal-500 hover:to-teal-600 text-white border-teal-400/40 active:scale-98'
+                  }`}
+                >
+                  <div className="flex items-center space-x-1.5">
+                    <Camera className="w-4 h-4 text-teal-200" />
+                    <span>👉 บันทึกมุมขวา</span>
+                  </div>
+                  <div className="flex items-center space-x-1 text-[11px] font-normal text-teal-200">
+                    <span className="font-mono bg-teal-950/50 px-1.5 py-0.5 rounded text-[10px]">[3 / R]</span>
+                    <span>• {angleBuckets.right.images.length}/{MAX_PHOTOS_PER_ANGLE} รูป</span>
+                  </div>
+                </button>
+
+              </div>
+
+              <p className="text-center text-[11px] text-slate-400">
+                💡 กดปุ่มถ่ายได้เรื่อยๆ (สูงสุด 10 รูป/มุม) • กดปุ่ม Spacebar เพื่อถ่ายมุมที่เลือกอยู่ทันที
+              </p>
+            </div>
+
+          </div>
+
+          {/* Right Column: Gallery & Inspector Panel (5 Cols) */}
+          <div className="lg:col-span-5 flex flex-col space-y-4">
+            
+            {/* Status & Instructions */}
+            <div className="bg-slate-800/80 rounded-xl p-3.5 border border-slate-700">
+              <div className="flex items-center space-x-2 mb-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-xs font-bold text-slate-200">สถานะระบบ (Local Driver 15270)</span>
+              </div>
+              <p className="text-xs text-slate-300">{statusMessage}</p>
+            </div>
+
+            {/* Gallery Inspector Card */}
+            <div className="bg-slate-800/80 rounded-xl p-3.5 border border-slate-700 flex-1 flex flex-col min-h-[380px]">
+              
+              {/* Gallery Header & Angle Filter Tabs */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-3 border-b border-slate-700">
+                <div className="flex items-center space-x-2">
+                  <ImageIcon className="w-4 h-4 text-[#466BB2]" />
+                  <h3 className="text-xs font-bold text-slate-200">
+                    แกลเลอรีรูปที่บันทึกแล้ว ({totalCapturedPhotos} รูป)
+                  </h3>
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex items-center bg-slate-900 p-1 rounded-lg border border-slate-700 text-[11px]">
                   <button
                     type="button"
-                    onClick={handleApplyCurrent}
-                    className="w-full py-3 px-4 bg-[#466BB2] hover:bg-[#3b5998] text-white text-sm font-bold rounded-xl shadow-md flex items-center justify-center space-x-2 transition-all active:scale-[0.99]"
+                    onClick={() => setGalleryTab('center')}
+                    className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                      galleryTab === 'center' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                    }`}
                   >
-                    <Check className="w-4 h-4" />
-                    <span>บันทึกรูปลงใน {fingerNameTh} มุมที่ {angleNumber}</span>
+                    กลาง ({angleBuckets.center.images.length})
                   </button>
-                )}
-
-                <div className="flex items-center space-x-2 pt-1">
                   <button
                     type="button"
-                    onClick={handlePasteImage}
-                    className="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg flex items-center justify-center space-x-1.5 transition-colors border border-slate-200"
-                    title="วางภาพจาก Clipboard"
+                    onClick={() => setGalleryTab('left')}
+                    className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                      galleryTab === 'left' ? 'bg-amber-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                    }`}
                   >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>วางรูป (Paste)</span>
+                    ซ้าย ({angleBuckets.left.images.length})
                   </button>
-
-                  {connectionType === 'mbt_cloud' && (
-                    <button
-                      type="button"
-                      onClick={handleOpenMbtScannerWindow}
-                      className="flex-1 py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg flex items-center justify-center space-x-1.5 transition-colors border border-blue-200"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>เปิดลิงก์ภายนอก</span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setGalleryTab('right')}
+                    className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                      galleryTab === 'right' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    ขวา ({angleBuckets.right.images.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGalleryTab('all')}
+                    className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                      galleryTab === 'all' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    ทั้งหมด
+                  </button>
                 </div>
               </div>
 
-              {/* Step & Specification info */}
-              <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl text-[11px] text-slate-600 flex items-center justify-between">
-                <span>เป้าหมาย: <strong>{fingerNameTh} ({selectedFingerKey})</strong></span>
-                <span>มุมที่: <strong>{angleNumber} / 7</strong></span>
-                <span>มาตรฐาน: <strong>500 DPI</strong></span>
+              {/* Gallery Thumbnail Grid */}
+              <div className="flex-1 overflow-y-auto py-3 space-y-3 pr-1">
+                {(galleryTab === 'all' ? ['center', 'left', 'right'] : [galleryTab]).map((typeKey) => {
+                  const type = typeKey as MainAngleType;
+                  const bucket = angleBuckets[type];
+                  const images = bucket.images;
+
+                  if (images.length === 0) {
+                    if (galleryTab !== 'all') {
+                      return (
+                        <div key={type} className="h-48 flex flex-col items-center justify-center text-center p-4 text-slate-400 space-y-2">
+                          <Camera className="w-8 h-8 text-slate-600" />
+                          <p className="text-xs">ยังไม่มีรูปบันทึกในมุม{bucket.label}</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveAngleTab(type);
+                              handleCaptureAngle(type);
+                            }}
+                            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-lg transition-colors"
+                          >
+                            📸 กดบันทึกรูปแรกของมุมนี้
+                          </button>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }
+
+                  return (
+                    <div key={type} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-300 flex items-center space-x-1.5">
+                          <span>{type === 'center' ? '🎯' : type === 'left' ? '👈' : '👉'}</span>
+                          <span>มุม{bucket.label} ({images.length}/{MAX_PHOTOS_PER_ANGLE} รูป)</span>
+                        </span>
+                        <span className="text-[10px] text-amber-400 font-medium">
+                          ⭐ รูปที่ {bucket.primaryIndex + 1} ถูกเลือกเป็นภาพหลัก
+                        </span>
+                      </div>
+
+                      {/* 10-Slot Grid */}
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {images.map((img, idx) => {
+                          const isPrimary = bucket.primaryIndex === idx;
+
+                          return (
+                            <div
+                              key={img.id}
+                              className={`relative group rounded-lg overflow-hidden border transition-all cursor-pointer bg-black aspect-3/4 flex flex-col justify-between ${
+                                isPrimary
+                                  ? 'border-amber-400 ring-2 ring-amber-400/40 shadow-md'
+                                  : 'border-slate-700 hover:border-slate-500'
+                              }`}
+                              onClick={() => setInspectedImage({ angleType: type, frame: img, index: idx })}
+                            >
+                              {/* Image Thumbnail */}
+                              <img
+                                src={img.dataUrl}
+                                alt={`Shot #${idx + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+
+                              {/* Top Bar on Thumb: Primary Star & Number */}
+                              <div className="absolute top-1 inset-x-1 flex items-center justify-between pointer-events-none">
+                                <span className={`text-[9px] px-1 py-0.2 rounded font-bold ${
+                                  isPrimary ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-black/60 text-white'
+                                }`}>
+                                  #{idx + 1}
+                                </span>
+                                {isPrimary && (
+                                  <span className="p-0.5 bg-amber-500 text-slate-950 rounded-full">
+                                    <Star className="w-2.5 h-2.5 fill-current" />
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Hover Action Overlay */}
+                              <div className="absolute inset-0 bg-slate-950/75 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-1 space-y-1.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setInspectedImage({ angleType: type, frame: img, index: idx });
+                                  }}
+                                  className="w-full py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[10px] font-bold flex items-center justify-center space-x-1"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>ดูรูปขยาย</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSetPrimaryImage(type, idx);
+                                  }}
+                                  className={`w-full py-1 rounded text-[10px] font-bold flex items-center justify-center space-x-1 ${
+                                    isPrimary ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 hover:bg-amber-600 text-white'
+                                  }`}
+                                >
+                                  <Star className="w-3 h-3" />
+                                  <span>{isPrimary ? 'รูปหลักแล้ว' : 'ใช้เป็นรูปหลัก'}</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteImage(type, idx);
+                                  }}
+                                  className="p-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded text-[10px] self-end"
+                                  title="ลบรูปนี้"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+
+                              {/* Bottom Clarity Badge */}
+                              <div className="absolute bottom-1 right-1 bg-black/70 px-1 py-0.2 rounded text-[9px] font-mono text-emerald-300 pointer-events-none">
+                                {img.quality}%
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {totalCapturedPhotos === 0 && (
+                  <div className="h-48 flex flex-col items-center justify-center text-center p-4 text-slate-400 space-y-2">
+                    <Camera className="w-10 h-10 text-slate-600" />
+                    <p className="text-xs">ยังไม่มีรูปบันทึกในเซสชันนี้</p>
+                    <p className="text-[11px] text-slate-500">
+                      กดปุ่ม <strong>"🎯 บันทึกมุมกลาง"</strong>, <strong>"👈 บันทึกมุมซ้าย"</strong> หรือ <strong>"👉 บันทึกมุมขวา"</strong> เพื่อเริ่มบันทึกรูป
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Actions Bar */}
+              <div className="pt-3 border-t border-slate-700 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-slate-400">
+                  รวมบันทึก {totalCapturedPhotos} รูป
+                </span>
+
+                <button
+                  type="button"
+                  onClick={handleApplyAllAndClose}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg transition-colors flex items-center space-x-1.5 shadow-md"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>บันทึกและนำรูปหลักไปใช้งาน</span>
+                </button>
               </div>
 
             </div>
+
+            {/* Collapsible Connection Settings */}
+            {showSettings && (
+              <div className="bg-slate-800/90 rounded-xl p-3.5 border border-slate-700 text-xs space-y-2 animate-in fade-in">
+                <p className="font-bold text-slate-200 flex items-center space-x-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-blue-400" />
+                  <span>ตั้งค่าพอร์ตการเชื่อมต่อ Futronic FS80H:</span>
+                </p>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={endpointUrl}
+                    onChange={(e) => setEndpointUrl(e.target.value)}
+                    className="flex-1 px-2.5 py-1 bg-slate-900 border border-slate-700 rounded text-slate-200 font-mono text-[11px]"
+                  />
+                  <button
+                    type="button"
+                    onClick={checkDriverStatus}
+                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium"
+                  >
+                    Ping
+                  </button>
+                </div>
+              </div>
+            )}
 
           </div>
 
         </div>
 
-        {/* Footer */}
-        <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+        {/* Footer info */}
+        <div className="bg-slate-900 px-4 sm:px-6 py-2.5 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
           <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>เชื่อมต่อกับ: <strong>{connectionType === 'mbt_cloud' ? 'https://mbt-scanner.vercel.app/' : 'Futronic FS80H'}</strong></span>
+            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <span>Futronic FS80H Driver • 500 DPI Optical Engine • Multi-Angle Burst</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition-colors"
-          >
-            ปิดหน้าต่าง
-          </button>
+          <div className="flex items-center space-x-3 font-mono text-[11px]">
+            <span>ปุ่มลัด: [1/C] มุมกลาง | [2/L] มุมซ้าย | [3/R] มุมขวา | [Space] ถ่ายมุมปัจจุบัน</span>
+          </div>
         </div>
 
       </div>
+
+      {/* Enlarged Photo Inspection Modal */}
+      {inspectedImage && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-150">
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 w-full max-w-lg overflow-hidden shadow-2xl flex flex-col">
+            
+            {/* Modal Header */}
+            <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-bold text-white">
+                  {inspectedImage.angleType === 'center' ? '🎯' : inspectedImage.angleType === 'left' ? '👈' : '👉'}
+                  {' '}มุม{ANGLE_CONFIGS[inspectedImage.angleType].label} — รูปที่ #{inspectedImage.index + 1}
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
+                  ความคมชัด {inspectedImage.frame.quality}%
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectedImage(null)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Photo Large Display */}
+            <div className="p-6 bg-black flex items-center justify-center min-h-[360px]">
+              <img
+                src={inspectedImage.frame.dataUrl}
+                alt="Enlarged Fingerprint Scan"
+                className="max-h-[420px] w-auto object-contain rounded-xl border border-slate-800 shadow-2xl"
+              />
+            </div>
+
+            {/* Actions Bar */}
+            <div className="bg-slate-800/90 px-4 py-3 border-t border-slate-700 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteImage(inspectedImage.angleType, inspectedImage.index);
+                }}
+                className="px-3 py-1.5 bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-bold rounded-lg border border-rose-500/40 flex items-center space-x-1.5 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>ลบรูปนี้</span>
+              </button>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSetPrimaryImage(inspectedImage.angleType, inspectedImage.index);
+                    setInspectedImage(null);
+                  }}
+                  className={`px-4 py-1.5 text-xs font-bold rounded-lg flex items-center space-x-1.5 transition-all ${
+                    angleBuckets[inspectedImage.angleType].primaryIndex === inspectedImage.index
+                      ? 'bg-amber-500 text-slate-950 shadow-md'
+                      : 'bg-blue-600 hover:bg-blue-500 text-white'
+                  }`}
+                >
+                  <Star className="w-3.5 h-3.5 fill-current" />
+                  <span>
+                    {angleBuckets[inspectedImage.angleType].primaryIndex === inspectedImage.index 
+                      ? 'รูปนี้เป็นภาพหลักแล้ว' 
+                      : 'เลือกใช้รูปนี้เป็นภาพหลัก'}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setInspectedImage(null)}
+                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-lg"
+                >
+                  ปิด
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
-

@@ -3,7 +3,7 @@
  * Supports:
  * 1. Futronic Web API (ftrScanAPI local service running on port 15270)
  * 2. WebUSB direct hardware access (Vendor ID: 0x0835)
- * 3. Fallback High-Fidelity Simulation generator for development/testing
+ * 3. Fallback High-Fidelity Simulation generator with real-time movement for development/testing
  */
 
 export interface FutronicConfig {
@@ -25,6 +25,7 @@ export interface ScanResult {
   rawBytes?: Uint8Array;
   timestamp: string;
   source: 'hardware_http' | 'hardware_webusb' | 'mbt_cloud' | 'simulation';
+  qualityScore?: number;
 }
 
 export type ScannerStatus = 
@@ -32,6 +33,7 @@ export type ScannerStatus =
   | 'checking'
   | 'ready'
   | 'waiting_finger'
+  | 'streaming'
   | 'capturing'
   | 'success'
   | 'driver_not_found'
@@ -60,19 +62,19 @@ export async function checkMbtScannerStatus(url: string = DEFAULT_MBT_SCANNER_UR
     if (res !== null) {
       return {
         isOnline: true,
-        message: 'เชื่อมต่อ MBT Cloud Scanner (mbt-scanner.vercel.app) สำเร็จ'
+        message: 'เชื่อมต่อ MBT Cloud Scanner สำเร็จ'
       };
     }
   } catch (e) {}
 
   return {
     isOnline: true,
-    message: 'พร้อมเชื่อมต่อ MBT Scanner (mbt-scanner.vercel.app)'
+    message: 'พร้อมเชื่อมต่อ MBT Scanner'
   };
 }
 
 /**
- * Check if the local Futronic ftrScanAPI Web Server is running
+ * Check if the local Futronic ftrScanAPI Web Server is running on port 15270
  */
 export async function checkFutronicServerStatus(endpoint: string = DEFAULT_FUTRONIC_ENDPOINT): Promise<{
   isOnline: boolean;
@@ -82,7 +84,7 @@ export async function checkFutronicServerStatus(endpoint: string = DEFAULT_FUTRO
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-    // Test ping via simple OPTIONS or POST attempt
+    // Test ping via POST attempt
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -95,7 +97,7 @@ export async function checkFutronicServerStatus(endpoint: string = DEFAULT_FUTRO
     if (res && (res.status === 200 || res.status === 400 || res.status === 405)) {
       return {
         isOnline: true,
-        message: 'พบไดรเวอร์และบริการ Futronic FS80H (ftrScanAPI) พร้อมทำงาน'
+        message: 'เชื่อมต่อ Local Driver (พอร์ต 15270) สำเร็จ พร้อมสตรีมภาพสด'
       };
     }
   } catch (e) {
@@ -104,7 +106,7 @@ export async function checkFutronicServerStatus(endpoint: string = DEFAULT_FUTRO
 
   return {
     isOnline: false,
-    message: 'ไม่พบบริการ Futronic Web Service (พอร์ต 15270) กรุณาตรวจสอบว่าเปิดไดรเวอร์แล้ว'
+    message: 'ไม่พบบริการ Futronic Web Service ที่พอร์ต 15270 (หากยังไม่ได้เปิดไดรเวอร์ สามารถใช้โหมดจำลองภาพสดได้ทันที)'
   };
 }
 
@@ -149,14 +151,14 @@ export async function requestFutronicWebUSB(): Promise<{
 }
 
 /**
- * Start a capture operation with the Futronic HTTP Web Server
+ * Start a single capture operation with the Futronic HTTP Web Server (Port 15270)
  */
 export async function startHttpCapture(
   endpoint: string = DEFAULT_FUTRONIC_ENDPOINT,
   onStatusChange?: (status: ScannerStatus, label: string) => void,
   invert: boolean = true
 ): Promise<ScanResult> {
-  onStatusChange?.('checking', 'กำลังเชื่อมต่อเครื่องสแกน Futronic FS80H...');
+  onStatusChange?.('checking', 'กำลังเชื่อมต่อเครื่องสแกน Futronic FS80H (พอร์ต 15270)...');
 
   const payload = {
     operation: 'capture',
@@ -192,7 +194,6 @@ export async function startHttpCapture(
       attempts++;
       if (attempts > maxAttempts) {
         clearInterval(pollInterval);
-        // Cancel operation
         fetch(`${endpoint}/${opId}/cancel`, { method: 'PUT' }).catch(() => {});
         reject(new Error('หมดเวลาการสแกน กรุณาลองใหม่อีกครั้ง'));
         return;
@@ -209,7 +210,7 @@ export async function startHttpCapture(
         const stateData = await stateRes.json();
 
         if (stateData.state === 'inprogress') {
-          onStatusChange?.('waiting_finger', 'กรุณาวางนิ้วบนเครื่องสแกน Futronic FS80H...');
+          onStatusChange?.('waiting_finger', 'กรุณาวางและขยับนิ้วบนเครื่องสแกน Futronic FS80H...');
         } else if (stateData.state === 'done') {
           clearInterval(pollInterval);
           if (stateData.status === 'success') {
@@ -258,8 +259,138 @@ export async function startHttpCapture(
         clearInterval(pollInterval);
         reject(err);
       }
-    }, 500);
+    }, 400);
   });
+}
+
+/**
+ * Generate dynamic live frame with finger movement simulation (x, y offsets, rotation, pressure)
+ */
+export function generateLiveSimulationFrame(
+  fingerKey: string = 'L1',
+  patternCode: string = 'Wt',
+  offsetX: number = 0,
+  offsetY: number = 0,
+  angleRad: number = 0,
+  pressure: number = 1.0,
+  qualityTarget: number = 95
+): {
+  dataUrl: string;
+  width: number;
+  height: number;
+  clarity: number;
+} {
+  const width = 320;
+  const height = 480;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    return { dataUrl: '', width, height, clarity: 0 };
+  }
+
+  // Optical sensor glass dark background
+  ctx.fillStyle = '#06080c';
+  ctx.fillRect(0, 0, width, height);
+
+  // Optical glow gradient
+  const grad = ctx.createRadialGradient(
+    width / 2 + offsetX * 0.3, 
+    height / 2 + offsetY * 0.3, 
+    30, 
+    width / 2, 
+    height / 2, 
+    230
+  );
+  grad.addColorStop(0, '#1c2430');
+  grad.addColorStop(0.65, '#0b0f16');
+  grad.addColorStop(1, '#020406');
+  ctx.fillStyle = grad;
+  ctx.fillRect(8, 8, width - 16, height - 16);
+
+  ctx.save();
+  // Apply movement transformation
+  ctx.translate(width / 2 + offsetX, height / 2 + offsetY);
+  ctx.rotate(angleRad);
+
+  // Ridge styling
+  ctx.strokeStyle = '#e0e8f0';
+  ctx.lineWidth = Math.max(1.8, 2.4 * pressure);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const isWhorl = patternCode.startsWith('W') || patternCode === 'Ws' || patternCode === 'Wt' || patternCode === 'Wd';
+  const isLoop = patternCode.startsWith('U') || patternCode.startsWith('R') || patternCode === 'UL' || patternCode === 'RL';
+
+  if (isWhorl) {
+    // Concentric Whorl Rings & Spiral Core
+    for (let r = 8; r < 145; r += 5.2) {
+      ctx.beginPath();
+      const wave = Math.sin(r * 0.15) * 1.8;
+      ctx.ellipse(0, wave, r, r * 1.32, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Deltas (Left & Right)
+    ctx.beginPath();
+    ctx.moveTo(-65, 30);
+    ctx.lineTo(-90, 60);
+    ctx.lineTo(-60, 70);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(65, 30);
+    ctx.lineTo(90, 60);
+    ctx.lineTo(60, 70);
+    ctx.stroke();
+  } else if (isLoop) {
+    // Loop pattern with core loop
+    for (let r = 8; r < 145; r += 5.2) {
+      ctx.beginPath();
+      ctx.arc(15, -15, r, Math.PI * 0.82, Math.PI * 2.18);
+      ctx.stroke();
+    }
+    // Single Delta
+    ctx.beginPath();
+    ctx.moveTo(-55, 35);
+    ctx.lineTo(-75, 60);
+    ctx.lineTo(-50, 65);
+    ctx.stroke();
+  } else {
+    // Arch pattern
+    for (let r = 12; r < 145; r += 5.2) {
+      ctx.beginPath();
+      ctx.ellipse(0, r * 0.55, r * 1.25, r * 0.65, 0, Math.PI * 1.08, Math.PI * 1.92);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+
+  // Optical sensor glass scanlines & subtle noise
+  const imgData = ctx.getImageData(0, 0, width, height);
+  for (let i = 0; i < imgData.data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 16;
+    imgData.data[i] = Math.max(0, Math.min(255, imgData.data[i] + noise));
+    imgData.data[i + 1] = Math.max(0, Math.min(255, imgData.data[i + 1] + noise));
+    imgData.data[i + 2] = Math.max(0, Math.min(255, imgData.data[i + 2] + noise));
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  // Live Optical Metadata Stamp
+  ctx.font = '10px monospace';
+  ctx.fillStyle = 'rgba(147, 197, 253, 0.6)';
+  ctx.fillText(`FUTRONIC FS80H • 500 DPI • ${fingerKey}`, 14, height - 14);
+
+  const clarity = Math.min(100, Math.max(70, qualityTarget - Math.abs(offsetX * 0.2) - Math.abs(offsetY * 0.2)));
+
+  return {
+    dataUrl: canvas.toDataURL('image/jpeg', 0.95),
+    width,
+    height,
+    clarity: Math.round(clarity)
+  };
 }
 
 /**
@@ -270,82 +401,34 @@ export function generateSimulatedFS80HScan(
   patternCode: string = 'Wt',
   angleIndex: number = 1
 ): ScanResult {
-  const canvas = document.createElement('canvas');
-  const width = 320;
-  const height = 480;
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  // Compute standard preset offset for angle 1-7
+  const angleOffsets: Record<number, { x: number; y: number; rot: number }> = {
+    1: { x: 0, y: 0, rot: 0 },         // Center
+    2: { x: -28, y: 10, rot: -0.12 },  // Left delta
+    3: { x: 28, y: 10, rot: 0.12 },   // Right delta
+    4: { x: 0, y: -25, rot: 0 },       // Top core
+    5: { x: 0, y: 25, rot: 0 },        // Lower base
+    6: { x: -22, y: -20, rot: -0.1 },  // Top-left
+    7: { x: 22, y: -20, rot: 0.1 }     // Top-right
+  };
 
-  if (!ctx) {
-    throw new Error('Canvas not supported');
-  }
-
-  // Draw authentic Futronic optical background (deep dark gray/black with optical texture)
-  ctx.fillStyle = '#050709';
-  ctx.fillRect(0, 0, width, height);
-
-  // Optical sensor glass highlight & border vignette
-  const grad = ctx.createRadialGradient(width / 2, height / 2, 40, width / 2, height / 2, 220);
-  grad.addColorStop(0, '#1a222d');
-  grad.addColorStop(0.7, '#0a0d12');
-  grad.addColorStop(1, '#020305');
-  ctx.fillStyle = grad;
-  ctx.fillRect(10, 10, width - 20, height - 20);
-
-  // Draw realistic ridge lines
-  ctx.strokeStyle = '#d8e2ec';
-  ctx.lineWidth = 2.4;
-  ctx.lineCap = 'round';
-
-  const centerX = width / 2 + (angleIndex === 2 ? -25 : angleIndex === 3 ? 25 : 0);
-  const centerY = height / 2 + 10;
-
-  // Draw fingerprint patterns based on code
-  if (patternCode.startsWith('W') || patternCode === 'Wt' || patternCode === 'Ws') {
-    // Whorl pattern (concentric ellipses and spirals)
-    for (let r = 8; r < 140; r += 5.5) {
-      ctx.beginPath();
-      const wave = Math.sin(r * 0.2) * 1.5;
-      ctx.ellipse(centerX, centerY + wave, r, r * 1.35, (angleIndex - 1) * 0.05, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  } else if (patternCode === 'U' || patternCode === 'UL') {
-    // Ulnar Loop
-    for (let r = 8; r < 140; r += 5.5) {
-      ctx.beginPath();
-      ctx.arc(centerX + 15, centerY - 20, r, Math.PI * 0.8, Math.PI * 2.2);
-      ctx.stroke();
-    }
-  } else {
-    // Arch pattern
-    for (let r = 10; r < 140; r += 5.5) {
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY + (r * 0.6), r * 1.2, r * 0.7, 0, Math.PI * 1.05, Math.PI * 1.95);
-      ctx.stroke();
-    }
-  }
-
-  // Optical noise & ridge texture
-  const imgData = ctx.getImageData(0, 0, width, height);
-  for (let i = 0; i < imgData.data.length; i += 4) {
-    const noise = (Math.random() - 0.5) * 14;
-    imgData.data[i] = Math.max(0, Math.min(255, imgData.data[i] + noise));
-    imgData.data[i + 1] = Math.max(0, Math.min(255, imgData.data[i + 1] + noise));
-    imgData.data[i + 2] = Math.max(0, Math.min(255, imgData.data[i + 2] + noise));
-  }
-  ctx.putImageData(imgData, 0, 0);
-
-  // Add subtle Futronic watermark / scan timestamp
-  ctx.font = '10px monospace';
-  ctx.fillStyle = 'rgba(116, 185, 255, 0.4)';
-  ctx.fillText(`FS80H • 500DPI • ${fingerKey} • A${angleIndex}`, 16, height - 16);
+  const currentOffset = angleOffsets[angleIndex] || { x: 0, y: 0, rot: 0 };
+  const frame = generateLiveSimulationFrame(
+    fingerKey, 
+    patternCode, 
+    currentOffset.x, 
+    currentOffset.y, 
+    currentOffset.rot, 
+    1.0, 
+    96
+  );
 
   return {
-    dataUrl: canvas.toDataURL('image/jpeg', 0.95),
-    width,
-    height,
+    dataUrl: frame.dataUrl,
+    width: frame.width,
+    height: frame.height,
     timestamp: new Date().toISOString(),
-    source: 'simulation'
+    source: 'simulation',
+    qualityScore: frame.clarity
   };
 }
