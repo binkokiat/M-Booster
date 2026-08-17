@@ -1,0 +1,6 @@
+{
+  "name": "MBT Scanner - Mind Booster Fingerprint & Analysis Studio",
+  "description": "Mind Booster Fingerprint Scanner & Dermatoglyphics Analysis Studio with real-time Firebase Auth and Firestore synchronization.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,101 @@
+.header-green .v-data-table-header {
+  background-color: #2b8152 !important;
+}
+.table-footer {
+  border-top: thin solid rgba(0, 0, 0, 0.12);
+  font-size: 14px;
+  color: #707070;
+}
+
+.per-page.v-select .v-input__control {
+  min-height: 28px !important;
+  max-height: 28px !important;
+}
+.per-page.v-select .v-input__control .v-input__slot {
+  min-height: 28px !important;
+  max-height: 28px !important;
+}
+.per-page.v-select .v-input__control .v-select__slot input {
+  min-height: 28px !important;
+  max-height: 28px !important;
+  color: #707070 !important;
+}
+.per-page.v-select .v-input__control .v-select__slot .v-input__append-inner {
+  margin-top: 2px !important;
+}
+.per-page.v-select .v-input__control .v-select__slot .v-input__append-inner i {
+  font-size: 28px !important;
+}
+
+.hard_break{
+  white-space: -moz-pre-wrap;
+  white-space: -pre-wrap;
+  white-space: -o-pre-wrap;
+  word-wrap: break-word;
+}
+
+.btn-filter {
+  background-color: #ffffff !important;
+  color: black !important;
+  text-transform: none !important;
+  border-color: #aeaeae !important;
+}
+.btn-filter:hover {
+  border-color: black !important;
+}
+
+/* Filter Select */
+.filter-select.v-select .v-input__control {
+  min-height: 32px !important;
+  max-height: 32px !important;
+}
+.filter-select.v-select .v-input__control .v-input__slot{
+  min-height: 32px !important;
+  max-height: 32px !important;
+}
+.filter-select.v-select .v-input__control .v-select__slot {
+  min-height: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  box-shadow: none !important;
+}
+.filter-select.v-select .v-input__control .v-select__slot input {
+  min-height: 32px !important;
+  max-height: 32px !important;
+}
+.filter-select.v-select .v-input__control .v-select__slot .v-select__selection {
+  color: #707070 !important;
+}
+.filter-select.v-select .v-input__control .v-select__slot .v-input__append-inner {
+  margin-top: 12px !important;
+}
+.filter-select.v-select .v-input__control .v-select__slot .v-input__append-inner i {
+  font-size: 20px !important;
+}
+
+/* Filter Auto Complete */
+.filter-autocomplete.v-select .v-input__control {
+  min-height: 32px !important;
+  max-height: 32px !important;
+}
+.filter-autocomplete.v-select .v-input__control .v-input__slot{
+  min-height: 32px !important;
+  max-height: 32px !important;
+}
+.filter-autocomplete.v-select .v-input__control .v-select__slot {
+  min-height: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  box-shadow: none !important;
+}
+.filter-autocomplete.v-select .v-input__control .v-select__slot input {
+  min-height: 32px !important;
+  max-height: 32px !important;
+  color: #707070 !important;
+}
+.filter-autocomplete.v-select .v-input__control .v-select__slot .v-input__append-inner {
+  margin-top: 5px !important;
+}
+.filter-autocomplete.v-select .v-input__control .v-select__slot .v-input__append-inner i {
+  font-size: 20px !important;
+}

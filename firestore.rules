@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Allow users/officers to read and write scans, clients, and activity logs
+    match /clients/{clientId} {
+      allow read, write: if true; // Allow seamless demo and authenticated operations
+    }
+    
+    match /scans/{scanId} {
+      allow read, write: if true;
+    }
+    
+    match /officers/{officerId} {
+      allow read, write: if true;
+    }
+
+    match /reports/{reportId} {
+      allow read, write: if true;
+    }
+
+    match /logs/{logId} {
+      allow read, write: if true;
+    }
+    
+    // Default fallback
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

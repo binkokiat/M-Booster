@@ -1,0 +1,388 @@
+.finger-box {
+    padding: 10px !important;
+    background-color: #ffffff !important;
+}
+.display-finger-box {
+    height: 135px;
+    justify-content: center !important;
+    align-items: center !important;
+}
+.undisplay-finger-box {
+    height: 135px; 
+    background-color:#F5F5F5; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+.analyst-review-box {
+    width: 100%; 
+    display: flex;
+}
+.ai-box {
+    width: 40%;
+}
+.analyst-box {
+    width: 60%; 
+    display: flex
+}
+.f-label {
+    font-size:.75rem;
+    color: #000000;
+    font-weight: 400;
+}
+.ai-result-title-box {
+    width: 125px;
+    color: white;
+    background-color: #E66E32 !important;
+    border: 1px solid #E66E32 !important;
+    border-radius: 0px 19px 19px 0px !important;
+    opacity: 1 !important;  
+    height: 30px; 
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+.analyst-result-title-box {
+    width: 150px;
+    color: white;
+    background-color:#466BB2 !important;
+    border: 1px solid#466BB2 !important;
+    border-radius: 0px 19px 19px 0px !important;
+    opacity: 1 !important;  
+    height: 30px; 
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+.ai-text {
+    font-size: .75rem !important;
+    font-weight: 600;
+}
+.v-card--reveal {
+    align-items: center;
+    bottom: 0;
+    justify-content: center;
+    opacity: 0.7;
+    position: absolute;
+    width: 100%;
+    background-color: black;
+}
+.tab-hand {
+    font-weight: 300;
+    font-size: 1rem;
+    padding: 1.3rem;
+}
+
+.hand-box {
+    position: relative;
+    width: 100%;
+    max-width: 180px;
+}
+
+.red_border {
+    border: 2px solid red;
+}
+
+/* Left hand */
+.left-little-finger {
+    background: transparent !important;
+    box-shadow: none;
+    min-width: 45px !important;
+    height: 45px !important;
+    border-radius: 50%;
+    position: absolute;
+    top: 18%;
+    left: -5%;
+    z-index: 1;
+}
+.left-little-finger::before {
+    background-color: transparent !important;
+}
+.left-ring-finger {
+    background: transparent !important;
+    box-shadow: none;
+    min-width: 45px !important;
+    height: 45px !important;
+    border-radius: 50%;
+    position: absolute;
+    top: 3%;
+    left: 11%;
+    z-index: 1;
+}
+.left-ring-finger::before {
+    background-color: transparent !important;
+}
+.left-middle-finger {
+    background: transparent !important;
+    box-shadow: none;
+    min-width: 45px !important;
+    height: 45px !important;
+    border-radius: 50%;
+    position: absolute;
+    top: -3%;
+    left: 30%;
+    z-index: 1;
+}
+.left-middle-finger::before {
+    background-color: transparent !important;
+}
+.left-index-finger {
+    background: transparent !important;
+    box-shadow: none;
+    min-width: 45px !important;
+    height: 45px !important;
+    border-radius: 50%;
+    position: absolute;
+    top: 3%;
+    left: 52%;
+    z-index: 1;
+}
+.left-index-finger::before {
+    background-color: transparent !important;
+}
+.left-thumb-finger {
+    background: transparent !important;
+    box-shadow: none;
+    min-width: 45px !important;
+    height: 45px !important;
+    border-radius: 50%;
+    position: absolute;
+    top: 35%;
+    left: 77%;
+    z-index: 1;
+    padding: 5px;
+}
+.left-thumb-finger::before {
+    background-color: transparent !important;
+}
+
+/* Right hand */
+.right-thumb-finger {
+    background: transparent !important;
+    box-shadow: none;
+    min-width: 45px !important;
+    height: 45px !important;
+    border-radius: 50%;
+    position: absolute;
+    top: 35%;
+    left: -2%;
+    z-index: 1;
+}
+.right-thumb-finger::before {
+    background-color: transparent !important;
+}
+.right-index-finger {
+    background: transparent !important;
+    box-shadow: none;
+    min-width: 45px !important;
+    height: 45px !important;
+    border-radius: 50%;
+    position: absolute;
+    top: 4%;
+    left: 22%;
+    z-index: 1;
+}
+.right-index-finger::before {
+    background-color: transparent !important;
+}
+.right-middle-finger {
+    background: transparent !important;
+    box-shadow: none;
+    min-width: 45px !important;
+    height: 45px !important;
+    border-radius: 50%;
+    position: absolute;
+    top: -2%;
+    left: 45%;
+    z-index: 1;
+}
+.right-middle-finger::before {
+    background-color: transparent !important;
+}
+.right-ring-finger {
+    background: transparent !important;
+    box-shadow: none;
+    min-width: 45px !important;
+    height: 45px !important;
+    border-radius: 50%;
+    position: absolute;
+    top: 4%;
+    left: 63%;
+    z-index: 1;
+}
+.right-ring-finger::before {
+    background-color: transparent !important;
+}
+.right-little-finger {
+    background: transparent !important;
+    box-shadow: none;
+    min-width: 45px !important;
+    height: 45px !important;
+    border-radius: 50%;
+    position: absolute;
+    top: 19%;
+    left: 79%;
+    z-index: 1;
+    padding: 5px;
+}
+.right-little-finger::before {
+    background-color: transparent !important;
+}
+
+.v-tabs-slider-wrapper {
+    height: 4px !important;
+}
+
+/* Scanning */
+.f-table {
+    width: 100%; 
+    border-spacing: unset;
+}
+.left-fingerprint-box {
+    height:69vh;
+    width:90%
+}
+.f-center-fingerprint-box {
+    width: 110px;
+}
+.f-center-display-fingerprint {
+    background:#F5F5F5;
+    text-align: center; 
+    padding:0;
+}
+.f-border-orange {
+    border:3.5px solid #FF9F1A;
+}
+.f-border-green {
+    border:3.5px solid #A3CB38;
+}
+.f-border-blue {
+    border:3.5px solid #3498DB;
+}
+/* f is finger scanning */
+.f-orange-color {
+    background-color: #FF9F1A;
+}
+.f-blue-color {
+    background-color: #3498DB;
+}
+.f-green-color {
+    background-color: #A3CB38;
+}
+.f-gray-highlight {
+    background-color: #C4C4C4;
+}
+.f-gray-light-highlight {
+    background-color: #F3F3F3;
+}
+.f-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+.f-sub-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.f-row-height {
+    height: 37px
+}
+.f-delete-button {
+    background-color:#888888 !important;
+    min-width: 25px !important;
+    width: 25px !important;
+    height: 25px !important;
+}
+.f-check-button {
+    min-width: 20px !important;
+    width: 20px !important;
+    height: 20px !important;
+}
+.f-check-box {
+    width: 45px; 
+    height: 35px;
+    margin: auto; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+}
+.f-button {
+    border-radius: 8px; 
+    width: 150px
+}
+.f-border {
+    border: solid 1px #DCDCDC;
+}
+.bg-white {
+    background-color: #ffffff;
+}
+.f-center-title {
+    font-size:.75rem;
+    font-weight:1000;
+    color:#000000
+}
+.tr-not-active {
+    background: transparent;
+}
+.tr-active > td {
+    background: #cee6ff !important;
+}
+.tr-active > th {
+    background: #cee6ff !important;
+}
+
+/* Text Field */
+.ai-text-field-h-25.v-text-field .v-input__control {
+    min-height: 25px !important;
+    max-height: 25px !important;
+}
+.ai-text-field-h-25.v-text-field .v-input__control .v-input__slot {
+    min-height: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    box-shadow: none !important;
+}
+.ai-text-field-h-25.v-text-field .v-input__control .v-text-field__slot input{
+    min-height: 25px !important;
+    max-height: 25px !important;
+}
+
+.ai-text-field-h-27.v-text-field .v-input__control {
+    min-height: 27px !important;
+    max-height: 27px !important;
+}
+.ai-text-field-h-27.v-text-field .v-input__control .v-input__slot {
+    min-height: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    box-shadow: none !important;
+}
+.ai-text-field-h-27.v-text-field .v-input__control .v-text-field__slot input{
+    min-height: 27px !important;
+    max-height: 27px !important;
+}
+
+/* Select */
+.ai-select-h-25.v-select .v-input__control {
+    min-height: 25px !important;
+    max-height: 25px !important;
+}
+.ai-select-h-25.v-select .v-input__control .v-input__slot{
+    min-height: 25px !important;
+    max-height: 25px !important;
+    padding-right: unset !important;
+}
+.ai-select-h-25.v-select .v-input__control .v-select__slot {
+    min-height: auto !important;
+    display: flex !important;
+    align-items: center !important;
+    box-shadow: none !important;
+}
+.ai-select-h-25.v-select .v-input__control .v-select__slot  input{
+    min-height: 25px !important;
+    max-height: 25px !important;
+}
+.ai-select-h-25.v-select .v-input__control .v-select__slot .v-input__append-inner {
+    margin-top: 1px !important;
+}

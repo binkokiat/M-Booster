@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MBT Scanner - Mind Booster Fingerprint Analysis Studio</title>
+    <meta name="description" content="ระบบสแกนและวิเคราะห์ลายนิ้วมือ Mind Booster พร้อมการจัดเก็บและซิงค์ข้อมูล Real-time ผ่าน Firebase" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        try {
+          var _origFetch = typeof window !== 'undefined' && window.fetch ? window.fetch.bind(window) : undefined;
+          var _currentFetch = _origFetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return _currentFetch;
+            },
+            set: function(fn) {
+              _currentFetch = fn;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          try {
+            if (typeof Window !== 'undefined' && Window.prototype) {
+              var _desc = Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+              if (_desc && !_desc.set) {
+                var _protoFetch = Window.prototype.fetch;
+                Object.defineProperty(Window.prototype, 'fetch', {
+                  get: function() { return _protoFetch; },
+                  set: function(fn) { _protoFetch = fn; },
+                  configurable: true,
+                  enumerable: true
+                });
+              }
+            }
+          } catch (err) {}
+        }
+      })();
+    </script>
+  </head>
+  <body class="font-sans antialiased bg-slate-900 text-slate-100 selection:bg-indigo-500 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
