@@ -154,13 +154,31 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
   };
 
   // Apply Futronic Scan Image
-  const handleApplyFutronicScan = (dataUrl: string, targetAngle?: string) => {
+  const handleApplyFutronicScan = (dataUrl: string, targetAngle?: string, targetFingerKey?: FingerKey) => {
+    const fingerToUse = targetFingerKey || selectedFingerKey;
     const angleToUse = targetAngle || activeAngle;
+    
+    setSelectedFingerKey(fingerToUse);
+    setActiveAngle(angleToUse);
+    
     setFingerprints(prev => {
-      const existingFinger = prev[selectedFingerKey];
+      const existingFinger = prev[fingerToUse] || {
+        key: fingerToUse,
+        finger_name_th: FINGER_DEFINITIONS.find(f => f.key === fingerToUse)?.th || fingerToUse,
+        finger_name_en: FINGER_DEFINITIONS.find(f => f.key === fingerToUse)?.en || fingerToUse,
+        hand: fingerToUse.startsWith('L') ? 'left' : 'right',
+        finger_type: 'thumb',
+        ai_type: 'Wt',
+        ai_RC1: 14,
+        ai_RC2: 12,
+        analyst_type: 'Wt',
+        analyst_RC1: 14,
+        analyst_RC2: 12,
+        angles: {}
+      };
       return {
         ...prev,
-        [selectedFingerKey]: {
+        [fingerToUse]: {
           ...existingFinger,
           angles: {
             ...existingFinger.angles,
@@ -1090,6 +1108,7 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
         patternType={currentFinger.analyst_type || currentFinger.ai_type || 'Wt'}
         onApplyScan={handleApplyFutronicScan}
         onNextAngle={handleNextAngle}
+        existingFingerprints={fingerprints}
       />
 
     </div>
