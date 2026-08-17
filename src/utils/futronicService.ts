@@ -432,3 +432,31 @@ export function generateSimulatedFS80HScan(
     qualityScore: frame.clarity
   };
 }
+
+/**
+ * Play subtle feedback chime on successful angle capture using Web Audio API
+ */
+export function playCaptureChime() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime); // A5
+    osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.08); // E6
+
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start();
+    osc.stop(ctx.currentTime + 0.13);
+  } catch (e) {
+    // Ignore audio context autoplay restriction
+  }
+}

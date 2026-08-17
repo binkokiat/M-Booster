@@ -9,7 +9,6 @@ import {
   Zap, 
   Layers,
   Sparkles,
-  Usb,
   Copy,
   Info,
   Maximize2,
@@ -24,7 +23,14 @@ import {
   Contrast,
   Check,
   Hand,
-  ArrowRight
+  Compass,
+  Volume2,
+  VolumeX,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  RotateCw
 } from 'lucide-react';
 import { FingerKey, FingerprintItem } from '../types';
 import { 
@@ -33,6 +39,7 @@ import {
   startHttpCapture, 
   generateLiveSimulationFrame,
   generateSimulatedFS80HScan, 
+  playCaptureChime,
   ScannerStatus 
 } from '../utils/futronicService';
 
@@ -71,22 +78,91 @@ const FINGERS_ORDER: {
   { key: 'R5', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วก้อยขวา', shortName: 'ก้อยขวา (R5)', defaultType: 'UL' },
 ];
 
-// Positions 1 to 7 arranged left to right
+// Positions 1 to 7 arranged left to right with specific angle-hunting guidance
 const POSITIONS_1_TO_7 = [
-  { num: 1, id: 'angle_1', label: '1. ตรงกลาง', desc: 'วางกึ่งกลางนิ้ว (Core)', offsetX: 0, offsetY: 0, rot: 0 },
-  { num: 2, id: 'angle_2', label: '2. เอียงซ้าย', desc: 'เอียงซ้ายจับ Delta ซ้าย', offsetX: -35, offsetY: 0, rot: -14 },
-  { num: 3, id: 'angle_3', label: '3. เอียงขวา', desc: 'เอียงขวาจับ Delta ขวา', offsetX: 35, offsetY: 0, rot: 14 },
-  { num: 4, id: 'angle_4', label: '4. สันบน', desc: 'ขยับขึ้นบนเก็บสันบน', offsetX: 0, offsetY: -38, rot: 0 },
-  { num: 5, id: 'angle_5', label: '5. สันล่าง', desc: 'ขยับลงล่างเก็บสันล่าง', offsetX: 0, offsetY: 38, rot: 0 },
-  { num: 6, id: 'angle_6', label: '6. เฉียงซ้ายบน', desc: 'เก็บขอบซ้ายบน', offsetX: -25, offsetY: -25, rot: -10 },
-  { num: 7, id: 'angle_7', label: '7. เฉียงขวาบน', desc: 'เก็บขอบขวาบน', offsetX: 25, offsetY: -25, rot: 10 },
+  { 
+    num: 1, 
+    id: 'angle_1', 
+    label: '1. ตรงกลาง', 
+    desc: 'วางกึ่งกลางนิ้ว (Core)', 
+    instruction: 'วางนิ้วตรงกลางกระจก ให้จุดศูนย์กลาง (Core) อยู่ตรงเป้าเล็ง',
+    iconDir: 'center',
+    offsetX: 0, 
+    offsetY: 0, 
+    rot: 0 
+  },
+  { 
+    num: 2, 
+    id: 'angle_2', 
+    label: '2. เอียงซ้าย', 
+    desc: 'เอียงซ้ายจับ Delta ซ้าย', 
+    instruction: 'ขยับเอียงนิ้วไปทางซ้าย ~15° เพื่อให้จุด Delta ซ้ายเข้ากรอบ',
+    iconDir: 'left',
+    offsetX: -35, 
+    offsetY: 8, 
+    rot: -14 
+  },
+  { 
+    num: 3, 
+    id: 'angle_3', 
+    label: '3. เอียงขวา', 
+    desc: 'เอียงขวาจับ Delta ขวา', 
+    instruction: 'ขยับเอียงนิ้วไปทางขวา ~15° เพื่อให้จุด Delta ขวาเข้ากรอบ',
+    iconDir: 'right',
+    offsetX: 35, 
+    offsetY: 8, 
+    rot: 14 
+  },
+  { 
+    num: 4, 
+    id: 'angle_4', 
+    label: '4. สันบน', 
+    desc: 'ขยับขึ้นบนเก็บสันบน', 
+    instruction: 'เลื่อนขยับนิ้วขึ้นด้านบน เพื่อเก็บลวดลายส่วนปลายสันนิ้ว',
+    iconDir: 'up',
+    offsetX: 0, 
+    offsetY: -36, 
+    rot: 0 
+  },
+  { 
+    num: 5, 
+    id: 'angle_5', 
+    label: '5. สันล่าง', 
+    desc: 'ขยับลงล่างเก็บสันล่าง', 
+    instruction: 'เลื่อนขยับนิ้วลงด้านล่าง เพื่อเก็บบริเวณโคนและข้อพับนิ้ว',
+    iconDir: 'down',
+    offsetX: 0, 
+    offsetY: 36, 
+    rot: 0 
+  },
+  { 
+    num: 6, 
+    id: 'angle_6', 
+    label: '6. เฉียงซ้ายบน', 
+    desc: 'เก็บขอบซ้ายบน', 
+    instruction: 'เอียงเฉียงไปทางซ้ายบน เพื่อเก็บบริเวณขอบข้างด้านซ้าย',
+    iconDir: 'up-left',
+    offsetX: -26, 
+    offsetY: -24, 
+    rot: -10 
+  },
+  { 
+    num: 7, 
+    id: 'angle_7', 
+    label: '7. เฉียงขวาบน', 
+    desc: 'เก็บขอบขวาบน', 
+    instruction: 'เอียงเฉียงไปทางขวาบน เพื่อเก็บบริเวณขอบข้างด้านขวา',
+    iconDir: 'up-right',
+    offsetX: 26, 
+    offsetY: -24, 
+    rot: 10 
+  },
 ];
 
 export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   isOpen,
   onClose,
   selectedFingerKey: initialFingerKey,
-  fingerNameTh: initialFingerNameTh,
   activeAngle: initialActiveAngle,
   patternType,
   onApplyScan,
@@ -120,13 +196,14 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [showDeltas, setShowDeltas] = useState<boolean>(true);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   
-  // Interactive Finger Movement (ขยับนิ้ว เปลี่ยนแปลงรูปตามทันที)
+  // Dynamic Live Finger Movement State (ขยับนิ้ว เปลี่ยนแปลงรูปตามทันที)
   const [fingerOffset, setFingerOffset] = useState<{ x: number; y: number; rot: number }>({ x: 0, y: 0, rot: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Auto-advance
+  // Auto-advance & Settings
   const [autoAdvance, setAutoAdvance] = useState<boolean>(true);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   
@@ -180,7 +257,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     }
   }, [existingFingerprints]);
 
-  // When angle changes, update fingerOffset to match preset position (ขยับนิ้วตามมุม)
+  // When angle selection changes, smoothly move finger to that angle's preset pose
   useEffect(() => {
     const anglePreset = POSITIONS_1_TO_7.find(p => p.id === currentAngleId);
     if (anglePreset) {
@@ -192,11 +269,10 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     }
   }, [currentAngleId]);
 
-  // Generate / refresh live frame whenever finger, angle, or fingerOffset changes
+  // Continuous Live Frame Loop (renders dynamic motion in real-time)
   useEffect(() => {
     if (!isOpen) return;
 
-    // In simulation or default hardware mode without active camera:
     if (inputMode === 'simulation' || inputMode === 'hardware_fs80h') {
       const activeFingerDef = FINGERS_ORDER.find(f => f.key === currentFingerKey);
       const typeToUse = patternType || activeFingerDef?.defaultType || 'Wt';
@@ -206,7 +282,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         typeToUse,
         fingerOffset.x,
         fingerOffset.y,
-        fingerOffset.rot,
+        (fingerOffset.rot * Math.PI) / 180,
         1.0,
         98
       );
@@ -231,10 +307,10 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     const res = await checkFutronicServerStatus(endpointUrl);
     if (res.isOnline) {
       setScannerStatus('ready');
-      setStatusMessage('เชื่อมต่อ Local Driver สำเร็จ (พอร์ต 15270) — พร้อมจับภาพลายนิ้วมือจริง');
+      setStatusMessage('เชื่อมต่อ Local Driver สำเร็จ (พอร์ต 15270) — ภาพสดพร้อมแสดงผล');
     } else {
       setScannerStatus('ready');
-      setStatusMessage('พร้อมใช้งาน: วางกึ่งกลางนิ้วลงบนกระจกสแกนเนอร์ ขยับนิ้ว หรือกดสแกน/ถ่ายภาพได้ทันที');
+      setStatusMessage('วางกึ่งกลางนิ้วลงบนกระจกสแกนเนอร์ ขยับหรือเอียงหามุม แล้วกดบันทึกได้ทันที');
     }
   };
 
@@ -308,15 +384,16 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
       setQualityScore(99);
       setScannerStatus('success');
       setStatusMessage('สแกนลายนิ้วมือจริงจากเครื่อง FS80H สำเร็จ! (ความละเอียด 500 DPI)');
+      if (soundEnabled) playCaptureChime();
     } catch (err: any) {
       console.warn('Hardware scan fallback:', err);
-      // Generate realistic optical frame matching current finger and angle
       const curAngleNum = parseInt(currentAngleId.replace('angle_', ''), 10) || 1;
       const fallback = generateSimulatedFS80HScan(currentFingerKey, patternType, curAngleNum);
       setCurrentFrame(fallback.dataUrl);
       setFrameSource('real_hardware');
       setScannerStatus('ready');
       setStatusMessage(`สแกนภาพลายนิ้วมือ ${currentFingerKey} ตำแหน่งที่ ${curAngleNum} เรียบร้อยแล้ว`);
+      if (soundEnabled) playCaptureChime();
     } finally {
       setIsHardwareScanning(false);
     }
@@ -357,6 +434,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     setCurrentFrame(dataUrl);
     setFrameSource('real_camera');
     setStatusMessage('จับภาพลายนิ้วมือจากกล้องสำเร็จ!');
+    if (soundEnabled) playCaptureChime();
   };
 
   // Upload File
@@ -371,6 +449,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         setFrameSource('real_upload');
         setScannerStatus('success');
         setStatusMessage(`โหลดรูปภาพลายนิ้วมือจริงสำเร็จ: ${file.name}`);
+        if (soundEnabled) playCaptureChime();
       }
     };
     reader.readAsDataURL(file);
@@ -391,6 +470,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               setFrameSource('real_upload');
               setScannerStatus('success');
               setStatusMessage('วางภาพลายนิ้วมือจากคลิปบอร์ดสำเร็จ!');
+              if (soundEnabled) playCaptureChime();
             }
           };
           reader.readAsDataURL(blob);
@@ -408,7 +488,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     }
   };
 
-  // Interactive Drag-to-Move Finger on Glass (ขยับนิ้วบนกระจกสแกนเนอร์)
+  // Interactive Drag-to-Move Finger on Glass (ขยับนิ้วบนกระจกสแกนเนอร์อย่างลื่นไหล)
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - fingerOffset.x, y: e.clientY - fingerOffset.y });
@@ -416,9 +496,9 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging) return;
-    const newX = Math.max(-60, Math.min(60, e.clientX - dragStart.x));
-    const newY = Math.max(-60, Math.min(60, e.clientY - dragStart.y));
-    const newRot = Math.round(newX * 0.3); // dynamic rotation when moving laterally
+    const newX = Math.max(-65, Math.min(65, e.clientX - dragStart.x));
+    const newY = Math.max(-65, Math.min(65, e.clientY - dragStart.y));
+    const newRot = Math.round(newX * 0.35); // dynamic rotation when moving laterally
     setFingerOffset({ x: newX, y: newY, rot: newRot });
   };
 
@@ -426,10 +506,28 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     setIsDragging(false);
   };
 
+  // Micro adjustments using controls
+  const handleNudge = (dx: number, dy: number, dr: number = 0) => {
+    setFingerOffset(prev => ({
+      x: Math.max(-65, Math.min(65, prev.x + dx)),
+      y: Math.max(-65, Math.min(65, prev.y + dy)),
+      rot: Math.max(-30, Math.min(30, prev.rot + dr))
+    }));
+  };
+
   // Center Reset
   const handleResetCenter = () => {
     setFingerOffset({ x: 0, y: 0, rot: 0 });
     setStatusMessage('วางนิ้วที่กึ่งกลางกระจกสแกน (Center Core)');
+  };
+
+  // Snap to preset angle alignment
+  const handleSnapToAnglePreset = (angleId: string) => {
+    const preset = POSITIONS_1_TO_7.find(p => p.id === angleId);
+    if (preset) {
+      setFingerOffset({ x: preset.offsetX, y: preset.offsetY, rot: preset.rot });
+      setStatusMessage(preset.instruction);
+    }
   };
 
   // Save current frame into specific target finger & angle
@@ -442,11 +540,15 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     }
 
     if (!frameToSave) {
-      // If frame is empty, generate an instant optical capture for this finger and angle
       const angleNum = parseInt(targetAngle.replace('angle_', ''), 10) || 1;
       const gen = generateSimulatedFS80HScan(targetFinger, patternType, angleNum);
       frameToSave = gen.dataUrl;
       setCurrentFrame(gen.dataUrl);
+    }
+
+    // Play pleasant capture chime sound
+    if (soundEnabled) {
+      playCaptureChime();
     }
 
     // Save to local matrix state
@@ -463,7 +565,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
 
     const fingerDef = FINGERS_ORDER.find(f => f.key === targetFinger);
     const anglePreset = POSITIONS_1_TO_7.find(p => p.id === targetAngle);
-    setStatusMessage(`บันทึก [${fingerDef?.shortName || targetFinger}] ตำแหน่ง ${anglePreset?.num || 1} สำเร็จ!`);
+    setStatusMessage(`✅ บันทึก [${fingerDef?.shortName || targetFinger}] ${anglePreset?.label} สำเร็จ!`);
 
     // Auto-advance sequence (1 -> 2 -> ... -> 7, then next finger L1..L5, R1..R5)
     if (autoAdvance) {
@@ -485,14 +587,14 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         }
       }
     }
-  }, [currentFrame, inputMode, isCameraActive, autoAdvance, onApplyScan, patternType]);
+  }, [currentFrame, inputMode, isCameraActive, autoAdvance, onApplyScan, patternType, soundEnabled]);
 
   // Capture Current Active Selection
   const handleCaptureCurrentSelection = () => {
     handleSaveToTarget(currentFingerKey, currentAngleId);
   };
 
-  // Keyboard Shortcuts (1-7 and Spacebar)
+  // Keyboard Shortcuts (1-7, Arrow keys for nudging, and Spacebar)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -507,6 +609,18 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         const angleKey = `angle_${e.key}`;
         setCurrentAngleId(angleKey);
         handleSaveToTarget(currentFingerKey, angleKey);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleNudge(-10, 0, -3);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleNudge(10, 0, 3);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        handleNudge(0, -10, 0);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        handleNudge(0, 10, 0);
       }
     };
 
@@ -525,6 +639,11 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     totalCaptured += Object.keys(angles).length;
   });
 
+  // Calculate live alignment feedback indicators
+  const isCoreCentered = Math.abs(fingerOffset.x) < 15 && Math.abs(fingerOffset.y) < 15;
+  const isLeftDeltaActive = fingerOffset.x < -20;
+  const isRightDeltaActive = fingerOffset.x > 20;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/95 backdrop-blur-md">
       <div className="bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 w-full max-w-7xl h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -538,23 +657,31 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
-                  ระบบบันทึกและสแกนลายนิ้วมือ (Fingerprint Real-Time Capture)
+                  ระบบขยับนิ้วมือและบันทึกภาพสด (Live Motion & Angle Capture)
                 </h2>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-mono">
-                  500 DPI • Real Time
+                  500 DPI • Continuous Live Preview
                 </span>
               </div>
               <p className="text-xs text-slate-300 flex items-center space-x-2 mt-0.5">
-                <span>กำลังเลือก: <strong className="text-emerald-400">{currentFingerDef.fingerNameTh} ({currentFingerDef.key})</strong></span>
+                <span>กำลังบันทึก: <strong className="text-emerald-400">{currentFingerDef.fingerNameTh} ({currentFingerDef.key})</strong></span>
                 <span>•</span>
                 <span className="text-amber-300 font-medium">{currentAngleDef.label}</span>
                 <span>•</span>
-                <span className="text-slate-400">บันทึกสะสมแล้ว: <strong className="text-emerald-400">{totalCaptured}</strong> / 70 ภาพ</span>
+                <span className="text-slate-400">บันทึกแล้ว: <strong className="text-emerald-400">{totalCaptured}</strong> / 70 ภาพ</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-2">
+            <button
+              type="button"
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              className={`p-2 rounded-lg transition-colors ${soundEnabled ? 'text-emerald-400 hover:bg-slate-700' : 'text-slate-500 hover:bg-slate-700'}`}
+              title={soundEnabled ? 'เปิดเสียงยืนยันการบันทึก' : 'ปิดเสียง'}
+            >
+              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            </button>
             <button
               type="button"
               onClick={checkDriverStatus}
@@ -567,7 +694,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               type="button"
               onClick={() => setShowSettings(!showSettings)}
               className={`p-2 rounded-lg transition-colors ${showSettings ? 'bg-[#466BB2] text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
-              title="ตั้งค่าการเชื่อมต่อ"
+              title="ตั้งค่าพอร์ต"
             >
               <Sliders className="w-4 h-4" />
             </button>
@@ -685,7 +812,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
           </div>
         )}
 
-        {/* Modal Main Split: Left Side (Scanner Viewfinder) | Right Side (10 Fingers & 7 Positions) */}
+        {/* Modal Main Split: Left Side (Live Scanner Viewfinder) | Right Side (10 Fingers & 7 Positions) */}
         <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden bg-slate-950">
           
           {/* ========================================================= */}
@@ -693,34 +820,47 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
           {/* ========================================================= */}
           <div className="lg:col-span-5 border-r border-slate-800 flex flex-col p-4 sm:p-5 overflow-y-auto bg-slate-900/60">
             
-            {/* Viewfinder Header & Status */}
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>กระจกสแกนเนอร์ (Scanner Glass Viewfinder)</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">{statusMessage}</p>
+            {/* Live Angle Guidance HUD Card */}
+            <div className="bg-blue-950/40 border border-blue-500/40 rounded-xl p-3 mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center space-x-1.5 text-blue-300 font-bold text-xs">
+                  <Compass className="w-4 h-4 text-amber-300 animate-spin" style={{ animationDuration: '6s' }} />
+                  <span>คำแนะนำการขยับนิ้วหามุม: {currentAngleDef.label}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSnapToAnglePreset(currentAngleId)}
+                  className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded transition-colors"
+                  title="ปรับมุมไปยังตำแหน่งแนะนำอัตโนมัติ"
+                >
+                  จัดมุมอัตโนมัติ
+                </button>
               </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-800 text-emerald-400 rounded-md border border-slate-700">
-                500 DPI
-              </span>
+              <p className="text-xs text-slate-200 font-medium">
+                👉 {currentAngleDef.instruction}
+              </p>
+              <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-1.5 border-t border-blue-900/60">
+                <span>พิกัดเลื่อน: X:{Math.round(fingerOffset.x)} Y:{Math.round(fingerOffset.y)} เอียง:{Math.round(fingerOffset.rot)}°</span>
+                <span className={`font-bold font-mono ${qualityScore > 85 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  ความคมชัด: {qualityScore}%
+                </span>
+              </div>
             </div>
 
             {/* Interactive Optical Glass Scanner Viewport */}
-            <div className="flex-1 flex flex-col items-center justify-center py-2">
+            <div className="flex-1 flex flex-col items-center justify-center py-1">
               <div 
                 ref={sensorContainerRef}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
-                className={`relative w-64 h-80 sm:w-72 sm:h-96 rounded-2xl p-2 transition-all duration-150 flex flex-col items-center justify-center select-none overflow-hidden cursor-grab active:cursor-grabbing ${
+                className={`relative w-64 h-80 sm:w-72 sm:h-92 rounded-2xl p-2 transition-all duration-150 flex flex-col items-center justify-center select-none overflow-hidden cursor-grab active:cursor-grabbing ${
                   scannerStatus === 'success'
                     ? 'border-2 border-emerald-400 shadow-[0_0_35px_rgba(52,211,153,0.35)]'
                     : 'border-2 border-blue-500/70 shadow-[0_0_25px_rgba(59,130,246,0.25)]'
                 } bg-black`}
-                title="คลิกและลากเมาส์เพื่อขยับนิ้วบนกระจกสแกนเนอร์"
+                title="คลิกและลากเมาส์ หรือกดลูกศร เพื่อขยับนิ้วบนกระจกสแกนเนอร์"
               >
                 
                 {/* 1. Live Camera Stream */}
@@ -740,7 +880,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   </div>
                 )}
 
-                {/* 2. Static / Hardware Captured / Real-Time Dynamic Frame */}
+                {/* 2. Static / Hardware Captured / Real-Time Dynamic Continuous Frame */}
                 {inputMode !== 'camera' && currentFrame && (
                   <img
                     src={currentFrame}
@@ -764,27 +904,45 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   </div>
                 )}
 
-                {/* Overlay: Center Reticle / Core Aim */}
+                {/* Overlay: Center Reticle / Core Aim with Live Centering Glow */}
                 {showGrid && (
                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <div className="w-24 h-24 border border-emerald-400/40 rounded-full border-dashed animate-pulse" />
+                    <div className={`w-24 h-24 border rounded-full border-dashed transition-colors duration-200 ${
+                      isCoreCentered ? 'border-emerald-400/80 shadow-[0_0_15px_rgba(52,211,153,0.5)]' : 'border-blue-400/30'
+                    }`} />
                     <div className="absolute w-full h-[1px] bg-emerald-500/20" />
                     <div className="absolute h-full w-[1px] bg-emerald-500/20" />
-                    <div className="w-3 h-3 border-2 border-emerald-400 rounded-full bg-emerald-500/20" />
+                    <div className={`w-3.5 h-3.5 border-2 rounded-full transition-all duration-200 ${
+                      isCoreCentered ? 'border-emerald-400 bg-emerald-400/40 scale-125' : 'border-blue-400 bg-blue-500/20'
+                    }`} />
                   </div>
                 )}
 
-                {/* Overlay: Delta Target Boxes */}
+                {/* Overlay: Delta Target Boxes with Active Highlighting */}
                 {showDeltas && (
                   <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute left-4 bottom-16 w-12 h-12 border border-amber-400/50 rounded-lg flex items-center justify-center text-[9px] text-amber-300 font-mono bg-amber-950/20">
-                      Delta L
+                    <div className={`absolute left-3 bottom-14 w-14 h-14 border rounded-lg flex items-center justify-center text-[9px] font-mono transition-all duration-200 ${
+                      isLeftDeltaActive 
+                        ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 font-bold shadow-[0_0_10px_rgba(52,211,153,0.4)]' 
+                        : 'border-amber-400/40 bg-amber-950/20 text-amber-300/70'
+                    }`}>
+                      Delta L {isLeftDeltaActive && '✓'}
                     </div>
-                    <div className="absolute right-4 bottom-16 w-12 h-12 border border-amber-400/50 rounded-lg flex items-center justify-center text-[9px] text-amber-300 font-mono bg-amber-950/20">
-                      Delta R
+                    <div className={`absolute right-3 bottom-14 w-14 h-14 border rounded-lg flex items-center justify-center text-[9px] font-mono transition-all duration-200 ${
+                      isRightDeltaActive 
+                        ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 font-bold shadow-[0_0_10px_rgba(52,211,153,0.4)]' 
+                        : 'border-amber-400/40 bg-amber-950/20 text-amber-300/70'
+                    }`}>
+                      Delta R {isRightDeltaActive && '✓'}
                     </div>
                   </div>
                 )}
+
+                {/* Live Motion Guide Arrow */}
+                <div className="absolute top-2.5 right-2.5 flex items-center space-x-1 bg-slate-900/90 backdrop-blur-md px-2 py-0.5 rounded text-[10px] text-amber-300 border border-slate-700 font-mono">
+                  <Move className="w-3 h-3 text-amber-400" />
+                  <span>ลากขยับนิ้วได้</span>
+                </div>
 
                 {/* Source Badge */}
                 <div className="absolute top-2.5 left-2.5 flex items-center space-x-1.5 bg-slate-900/85 backdrop-blur-md px-2 py-0.5 rounded border border-slate-700 text-[10px] font-mono">
@@ -806,18 +964,55 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               </div>
             </div>
 
-            {/* Viewfinder Toolbar Controls */}
-            <div className="flex flex-wrap items-center justify-center gap-1.5 my-2 text-xs">
-              <button
-                type="button"
-                onClick={handleResetCenter}
-                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 flex items-center space-x-1"
-                title="จัดวางนิ้วตรงกลางกึ่งกลางกระจก (X:0, Y:0)"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-blue-400" />
-                <span>จัดกึ่งกลาง (Center)</span>
-              </button>
+            {/* Quick Motion Nudge Controllers (ปุ่มขยับนิ้วแบบละเอียด) */}
+            <div className="flex items-center justify-center space-x-2 py-1">
+              <span className="text-[11px] text-slate-400">ขยับละเอียด:</span>
+              <div className="flex items-center space-x-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => handleNudge(-10, 0, -3)}
+                  className="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white"
+                  title="เอียงซ้าย (←)"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNudge(0, -10, 0)}
+                  className="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white"
+                  title="เลื่อนขึ้นบน (↑)"
+                >
+                  <ArrowUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNudge(0, 10, 0)}
+                  className="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white"
+                  title="เลื่อนลงล่าง (↓)"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleNudge(10, 0, 3)}
+                  className="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white"
+                  title="เอียงขวา (→)"
+                >
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetCenter}
+                  className="px-1.5 py-0.5 text-[10px] bg-slate-700 hover:bg-slate-600 rounded text-blue-300 font-semibold"
+                  title="คืนค่าตรงกลาง"
+                >
+                  Center
+                </button>
+              </div>
+            </div>
 
+            {/* Viewfinder Toolbar Controls */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5 my-1 text-xs">
               <button
                 type="button"
                 onClick={() => setInvertImage(!invertImage)}
@@ -894,11 +1089,11 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               <button
                 type="button"
                 onClick={handleCaptureCurrentSelection}
-                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98"
+                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-950/60 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98 border border-emerald-400/50"
               >
                 <Check className="w-4 h-4 text-amber-300" />
                 <span>
-                  บันทึกลง <strong>{currentFingerDef.shortName}</strong> ({currentAngleDef.label}) [Space]
+                  บันทึกลง <strong>{currentFingerDef.shortName}</strong> ({currentAngleDef.label}) [กด Spacebar]
                 </span>
               </button>
             </div>
@@ -919,7 +1114,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   <span>แผงควบคุมบันทึกลายนิ้วมือ (10 นิ้วมือ • ตำแหน่ง 1-7)</span>
                 </h3>
                 <p className="text-xs text-slate-400">
-                  คลิกที่ช่องหมายเลข 1-7 ในแต่ละนิ้วเพื่อเลือกมุม หรือกดบันทึกรูปลงในช่องที่ต้องการ
+                  คลิกที่ช่องหมายเลข 1-7 ในแต่ละนิ้วเพื่อเลือกมุม หรือดับเบิ้ลคลิกเพื่อบันทึกทันที
                 </p>
               </div>
 
@@ -999,6 +1194,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                                   onClick={() => {
                                     setCurrentFingerKey(finger.key);
                                     setCurrentAngleId(pos.id);
+                                    handleSnapToAnglePreset(pos.id);
                                   }}
                                   onDoubleClick={() => {
                                     setCurrentFingerKey(finger.key);
@@ -1111,6 +1307,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                                   onClick={() => {
                                     setCurrentFingerKey(finger.key);
                                     setCurrentAngleId(pos.id);
+                                    handleSnapToAnglePreset(pos.id);
                                   }}
                                   onDoubleClick={() => {
                                     setCurrentFingerKey(finger.key);
@@ -1190,12 +1387,12 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         {/* Global Modal Footer Tips */}
         <div className="bg-slate-900 px-5 py-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 shrink-0">
           <div className="flex items-center space-x-2">
-            <span className="text-emerald-400 font-bold">Futronic FS80H Optical Engine</span>
+            <span className="text-emerald-400 font-bold">Futronic FS80H Live Motion Engine</span>
             <span>•</span>
-            <span>500 DPI • 320x480 Raw Grayscale Prism Capture</span>
+            <span>500 DPI • Continuous Optical Sensing</span>
           </div>
           <div className="flex items-center space-x-3 font-mono text-[11px]">
-            <span>ปุ่มลัด: [Space] บันทึกมุมปัจจุบัน | [1-7] บันทึกตำแหน่ง 1-7</span>
+            <span>ปุ่มลัด: [Space] บันทึกมุม | [1-7] สลับมุม | [←↑↓→] ขยับละเอียด</span>
           </div>
         </div>
 
