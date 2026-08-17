@@ -269,14 +269,13 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     }
   }, [currentAngleId]);
 
-  // Continuous Live Frame Loop (renders dynamic motion in real-time for each finger)
+  // Continuous Live Frame Loop (renders dynamic motion in real-time)
   useEffect(() => {
     if (!isOpen) return;
 
     if (inputMode === 'simulation' || inputMode === 'hardware_fs80h') {
       const activeFingerDef = FINGERS_ORDER.find(f => f.key === currentFingerKey);
-      const currentFingerData = existingFingerprints?.[currentFingerKey];
-      const typeToUse = currentFingerData?.analyst_type || currentFingerData?.ai_type || activeFingerDef?.defaultType || 'Wt';
+      const typeToUse = patternType || activeFingerDef?.defaultType || 'Wt';
       
       const frame = generateLiveSimulationFrame(
         currentFingerKey,
@@ -290,7 +289,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
       setCurrentFrame(frame.dataUrl);
       setQualityScore(frame.clarity);
     }
-  }, [isOpen, currentFingerKey, currentAngleId, fingerOffset, inputMode, existingFingerprints]);
+  }, [isOpen, currentFingerKey, currentAngleId, fingerOffset, inputMode, patternType]);
 
   // Check hardware driver status on open
   useEffect(() => {
@@ -489,7 +488,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     }
   };
 
-  // Interactive Drag-to-Move Finger on Glass (ขยับนิ้วบนกระจกสแกนเนอร์อย่างลื่นไหล รองรับทั้งเมาส์และทัชสกรีน)
+  // Interactive Drag-to-Move Finger on Glass (ขยับนิ้วบนกระจกสแกนเนอร์อย่างลื่นไหล)
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - fingerOffset.x, y: e.clientY - fingerOffset.y });
@@ -504,25 +503,6 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   };
 
   const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length > 0) {
-      setIsDragging(true);
-      setDragStart({ x: e.touches[0].clientX - fingerOffset.x, y: e.touches[0].clientY - fingerOffset.y });
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || e.touches.length === 0) return;
-    const newX = Math.max(-65, Math.min(65, e.touches[0].clientX - dragStart.x));
-    const newY = Math.max(-65, Math.min(65, e.touches[0].clientY - dragStart.y));
-    const newRot = Math.round(newX * 0.35);
-    setFingerOffset({ x: newX, y: newY, rot: newRot });
-  };
-
-  const handleTouchEnd = () => {
     setIsDragging(false);
   };
 
@@ -875,10 +855,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                className={`relative w-64 h-80 sm:w-72 sm:h-92 rounded-2xl p-2 transition-all duration-150 flex flex-col items-center justify-center select-none overflow-hidden cursor-grab active:cursor-grabbing touch-none ${
+                className={`relative w-64 h-80 sm:w-72 sm:h-92 rounded-2xl p-2 transition-all duration-150 flex flex-col items-center justify-center select-none overflow-hidden cursor-grab active:cursor-grabbing ${
                   scannerStatus === 'success'
                     ? 'border-2 border-emerald-400 shadow-[0_0_35px_rgba(52,211,153,0.35)]'
                     : 'border-2 border-blue-500/70 shadow-[0_0_25px_rgba(59,130,246,0.25)]'

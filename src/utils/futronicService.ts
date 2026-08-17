@@ -265,7 +265,6 @@ export async function startHttpCapture(
 
 /**
  * Generate dynamic live frame with finger movement simulation (x, y offsets, rotation, pressure)
- * Produces distinct, authentic biometric patterns for each of the 10 fingers (L1-L5, R1-R5)
  */
 export function generateLiveSimulationFrame(
   fingerKey: string = 'L1',
@@ -293,157 +292,98 @@ export function generateLiveSimulationFrame(
   }
 
   // Optical sensor glass dark background
-  ctx.fillStyle = '#05070a';
+  ctx.fillStyle = '#06080c';
   ctx.fillRect(0, 0, width, height);
 
   // Optical glow gradient
   const grad = ctx.createRadialGradient(
     width / 2 + offsetX * 0.3, 
     height / 2 + offsetY * 0.3, 
-    20, 
+    30, 
     width / 2, 
     height / 2, 
-    240
+    230
   );
-  grad.addColorStop(0, '#1a222e');
-  grad.addColorStop(0.65, '#0a0e14');
-  grad.addColorStop(1, '#020305');
+  grad.addColorStop(0, '#1c2430');
+  grad.addColorStop(0.65, '#0b0f16');
+  grad.addColorStop(1, '#020406');
   ctx.fillStyle = grad;
   ctx.fillRect(8, 8, width - 16, height - 16);
 
   ctx.save();
-  // Apply live movement transformation (Translation + Rotation)
+  // Apply movement transformation
   ctx.translate(width / 2 + offsetX, height / 2 + offsetY);
   ctx.rotate(angleRad);
 
   // Ridge styling
-  ctx.strokeStyle = '#e6edf5';
-  ctx.lineWidth = Math.max(1.8, 2.3 * pressure);
+  ctx.strokeStyle = '#e0e8f0';
+  ctx.lineWidth = Math.max(1.8, 2.4 * pressure);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Finger specific parameters
-  const isLeftHand = fingerKey.startsWith('L');
-  const fingerNum = parseInt(fingerKey.replace(/\D/g, ''), 10) || 1;
-  const isThumb = fingerNum === 1;
-  const isIndex = fingerNum === 2;
-  const isMiddle = fingerNum === 3;
-  const isRing = fingerNum === 4;
-  const isPinky = fingerNum === 5;
+  const isWhorl = patternCode.startsWith('W') || patternCode === 'Ws' || patternCode === 'Wt' || patternCode === 'Wd';
+  const isLoop = patternCode.startsWith('U') || patternCode.startsWith('R') || patternCode === 'UL' || patternCode === 'RL';
 
-  const isWhorl = patternCode.startsWith('W') || patternCode === 'Ws' || patternCode === 'Wt' || patternCode === 'Wd' || isThumb;
-  const isDoubleLoop = patternCode === 'Wd' || (isRing && !isLeftHand);
-  const isArch = patternCode.startsWith('A') || patternCode === 'AT' || patternCode === 'AS';
-
-  if (isDoubleLoop) {
-    // S-Twisted Double Loop Whorl (Twin intertwining loops)
-    for (let r = 8; r < 140; r += 5.2) {
-      ctx.beginPath();
-      // Upper loop
-      ctx.arc(0, -16, r * 0.85, Math.PI * 0.1, Math.PI * 1.5);
-      // Lower loop
-      ctx.arc(0, 16, r * 0.85, Math.PI * 1.1, Math.PI * 2.5);
-      ctx.stroke();
-    }
-    // Dual Deltas
-    ctx.beginPath();
-    ctx.moveTo(-68, 30); ctx.lineTo(-92, 58); ctx.lineTo(-64, 68);
-    ctx.moveTo(68, 30); ctx.lineTo(92, 58); ctx.lineTo(64, 68);
-    ctx.stroke();
-  } else if (isWhorl) {
-    // Concentric / Spiral Whorl with dual deltas
-    const spiralDir = isLeftHand ? -1 : 1;
-    const coreShiftX = isThumb ? (isLeftHand ? -6 : 6) : 0;
-    const coreShiftY = isThumb ? 4 : 0;
-
-    for (let r = 7; r < 145; r += 5.2) {
-      ctx.beginPath();
-      const wave = Math.sin((r + (isLeftHand ? 0 : 4)) * 0.2) * 1.6;
-      const radiusX = r * (isThumb ? 1.08 : isRing ? 0.95 : 1.0);
-      const radiusY = r * 1.34;
-      ctx.ellipse(coreShiftX + spiralDir * (r * 0.05), coreShiftY + wave, radiusX, radiusY, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    // Left Delta
-    ctx.beginPath();
-    ctx.moveTo(-64 + (isLeftHand ? -5 : 0), 28);
-    ctx.lineTo(-92, 58);
-    ctx.lineTo(-60, 68);
-    ctx.stroke();
-
-    // Right Delta
-    ctx.beginPath();
-    ctx.moveTo(64 + (isLeftHand ? 0 : 5), 28);
-    ctx.lineTo(92, 58);
-    ctx.lineTo(60, 68);
-    ctx.stroke();
-  } else if (isArch) {
-    // Tented / Simple Arch
-    const peakHeight = isMiddle ? 1.6 : 1.2;
-    for (let r = 10; r < 145; r += 5.2) {
-      ctx.beginPath();
-      ctx.ellipse(0, r * 0.52, r * 1.22, r * (0.65 * peakHeight), 0, Math.PI * 1.06, Math.PI * 1.94);
-      ctx.stroke();
-    }
-  } else {
-    // Loop pattern (Ulnar / Radial Loop)
-    // Left hand ulnar loop flows rightwards (towards pinky); Radial flows leftwards
-    const flowDirection = isLeftHand ? (isIndex ? 1 : -1) : (isIndex ? -1 : 1);
-    const loopCenterX = flowDirection * 18;
-    const loopCenterY = -12;
-
+  if (isWhorl) {
+    // Concentric Whorl Rings & Spiral Core
     for (let r = 8; r < 145; r += 5.2) {
       ctx.beginPath();
-      if (flowDirection < 0) {
-        // Curve flowing left
-        ctx.arc(loopCenterX, loopCenterY, r, Math.PI * 0.85, Math.PI * 2.22);
-      } else {
-        // Curve flowing right
-        ctx.arc(loopCenterX, loopCenterY, r, Math.PI * 0.78, Math.PI * 2.15);
-      }
+      const wave = Math.sin(r * 0.15) * 1.8;
+      ctx.ellipse(0, wave, r, r * 1.32, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
-
-    // Delta on opposite side of loop exit
-    const deltaX = flowDirection < 0 ? 62 : -62;
+    // Deltas (Left & Right)
     ctx.beginPath();
-    ctx.moveTo(deltaX, 32);
-    ctx.lineTo(deltaX + (flowDirection < 0 ? 25 : -25), 60);
-    ctx.lineTo(deltaX, 68);
+    ctx.moveTo(-65, 30);
+    ctx.lineTo(-90, 60);
+    ctx.lineTo(-60, 70);
     ctx.stroke();
-  }
 
-  // Minutiae bifurcations & ridge endings
-  ctx.lineWidth = 2.0;
-  const minutiaeSeed = (fingerKey.charCodeAt(0) + fingerKey.charCodeAt(1) * 3);
-  for (let m = 0; m < 6; m++) {
-    const mx = Math.sin(minutiaeSeed + m * 2) * 45;
-    const my = Math.cos(minutiaeSeed + m * 3) * 60;
     ctx.beginPath();
-    ctx.arc(mx, my, 1.6, 0, Math.PI * 2);
-    ctx.fillStyle = '#f1f5f9';
-    ctx.fill();
+    ctx.moveTo(65, 30);
+    ctx.lineTo(90, 60);
+    ctx.lineTo(60, 70);
+    ctx.stroke();
+  } else if (isLoop) {
+    // Loop pattern with core loop
+    for (let r = 8; r < 145; r += 5.2) {
+      ctx.beginPath();
+      ctx.arc(15, -15, r, Math.PI * 0.82, Math.PI * 2.18);
+      ctx.stroke();
+    }
+    // Single Delta
+    ctx.beginPath();
+    ctx.moveTo(-55, 35);
+    ctx.lineTo(-75, 60);
+    ctx.lineTo(-50, 65);
+    ctx.stroke();
+  } else {
+    // Arch pattern
+    for (let r = 12; r < 145; r += 5.2) {
+      ctx.beginPath();
+      ctx.ellipse(0, r * 0.55, r * 1.25, r * 0.65, 0, Math.PI * 1.08, Math.PI * 1.92);
+      ctx.stroke();
+    }
   }
 
   ctx.restore();
 
-  // Optical sensor glass scanlines & realistic grain
+  // Optical sensor glass scanlines & subtle noise
   const imgData = ctx.getImageData(0, 0, width, height);
   for (let i = 0; i < imgData.data.length; i += 4) {
-    const noise = (Math.random() - 0.5) * 14;
+    const noise = (Math.random() - 0.5) * 16;
     imgData.data[i] = Math.max(0, Math.min(255, imgData.data[i] + noise));
     imgData.data[i + 1] = Math.max(0, Math.min(255, imgData.data[i + 1] + noise));
     imgData.data[i + 2] = Math.max(0, Math.min(255, imgData.data[i + 2] + noise));
   }
   ctx.putImageData(imgData, 0, 0);
 
-  // Live Optical Metadata Stamp (Updates with dynamic finger & angle position)
+  // Live Optical Metadata Stamp
   ctx.font = '10px monospace';
-  ctx.fillStyle = 'rgba(147, 197, 253, 0.7)';
-  ctx.fillText(`FUTRONIC FS80H • 500 DPI • ${fingerKey} (${patternCode})`, 14, height - 14);
+  ctx.fillStyle = 'rgba(147, 197, 253, 0.6)';
+  ctx.fillText(`FUTRONIC FS80H • 500 DPI • ${fingerKey}`, 14, height - 14);
 
-  const clarity = Math.min(100, Math.max(70, qualityTarget - Math.abs(offsetX * 0.15) - Math.abs(offsetY * 0.15)));
+  const clarity = Math.min(100, Math.max(70, qualityTarget - Math.abs(offsetX * 0.2) - Math.abs(offsetY * 0.2)));
 
   return {
     dataUrl: canvas.toDataURL('image/jpeg', 0.95),
