@@ -1,0 +1,18 @@
+{
+   "status": "success",
+   "status_code": 200,
+   "message_error":"",
+   "result":{
+      "user_status_total":{
+         "Created": 2000,
+         "Ready to Review": 325,
+         "Approved": 80,
+         "Disapproved": 120,
+         "AI-Processing": 5,
+         "AI-Resulted": 20,
+         "Analyst-Reviewed": 590,
+         "Export to Report": 160,
+         "Reported": 170
+      }
+   }
+}

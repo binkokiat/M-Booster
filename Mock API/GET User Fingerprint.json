@@ -1,0 +1,2425 @@
+{
+   "status": "success",
+   "status_code": 200,
+   "message_error":"",
+   "result":{
+       "finder_id": 9999,
+       "latest_modified":"2020-12-01T00:45:04",
+       "fingerprint": {
+            "right": {
+                "thumb": {
+                    "ai_type": "WC",
+                    "ai_RC1": "5",
+                    "ai_RC2": "5",
+                    "analyst_type": "WC",
+                    "analyst_RC1": "5",
+                    "analyst_RC2": "5",
+                    "angle": {
+                        "angle_1": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_2": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_3": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_4": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_5": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_6": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_7": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        }
+                    }
+                },
+                "index": {
+                    "ai_type": "WC",
+                    "ai_RC1": "5",
+                    "ai_RC2": "5",
+                    "analyst_type": "WC",
+                    "analyst_RC1": "5",
+                    "analyst_RC2": "5",
+                    "angle": {
+                        "angle_1": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_2": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_3": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_4": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_5": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_6": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_7": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        }
+                    }
+                },
+                "middle": {
+                    "ai_type": "WC",
+                    "ai_RC1": "5",
+                    "ai_RC2": "5",
+                    "analyst_type": "WC",
+                    "analyst_RC1": "5",
+                    "analyst_RC2": "5",
+                    "angle": {
+                        "angle_1": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_2": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_3": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_4": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_5": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_6": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_7": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        }
+                    }
+                },
+                "ring": {
+                    "ai_type": "WC",
+                    "ai_RC1": "5",
+                    "ai_RC2": "5",
+                    "analyst_type": "WC",
+                    "analyst_RC1": "5",
+                    "analyst_RC2": "5",
+                    "angle": {
+                        "angle_1": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_2": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_3": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_4": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_5": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_6": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_7": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        }
+                    }
+                },
+                "pinkie": {
+                    "ai_type": "WC",
+                    "ai_RC1": "5",
+                    "ai_RC2": "5",
+                    "analyst_type": "WC",
+                    "analyst_RC1": "5",
+                    "analyst_RC2": "5",
+                    "angle": {
+                        "angle_1": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_2": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_3": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_4": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_5": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_6": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_7": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "left": {
+                "thumb": {
+                    "ai_type": "WC",
+                    "ai_RC1": "5",
+                    "ai_RC2": "5",
+                    "analyst_type": "WC",
+                    "analyst_RC1": "5",
+                    "analyst_RC2": "5",
+                    "angle": {
+                        "angle_1": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_2": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_3": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_4": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_5": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_6": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_7": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        }
+                    }
+                },
+                "index": {
+                    "ai_type": "WC",
+                    "ai_RC1": "5",
+                    "ai_RC2": "5",
+                    "analyst_type": "WC",
+                    "analyst_RC1": "5",
+                    "analyst_RC2": "5",
+                    "angle": {
+                        "angle_1": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_2": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_3": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_4": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_5": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_6": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_7": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        }
+                    }
+                },
+                "middle": {
+                    "ai_type": "WC",
+                    "ai_RC1": "5",
+                    "ai_RC2": "5",
+                    "analyst_type": "WC",
+                    "analyst_RC1": "5",
+                    "analyst_RC2": "5",
+                    "angle": {
+                        "angle_1": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_2": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_3": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_4": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_5": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_6": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_7": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        }
+                    }
+                },
+                "ring": {
+                    "ai_type": "WC",
+                    "ai_RC1": "5",
+                    "ai_RC2": "5",
+                    "analyst_type": "WC",
+                    "analyst_RC1": "5",
+                    "analyst_RC2": "5",
+                    "angle": {
+                        "angle_1": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_2": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_3": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_4": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_5": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_6": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_7": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        }
+                    }
+                },
+                "pinkie": {
+                    "ai_type": "WC",
+                    "ai_RC1": "5",
+                    "ai_RC2": "5",
+                    "analyst_type": "WC",
+                    "analyst_RC1": "5",
+                    "analyst_RC2": "5",
+                    "angle": {
+                        "angle_1": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_2": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_3": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_4": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_5": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_6": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        },
+                        "angle_7": {
+                            "image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_RC": "5",
+                            "ai_count_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "ai_enhanced_image": "https://previews.123rf.com/images/prill/prill1110/prill111002172/10914295-a-black-thumb-fingerprint-in-white-back.jpg",
+                            "analyst_RC": "7",
+                            "line": [
+                                {
+                                    "start": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    },
+                                    "end": {
+                                        "point_x": 30,
+                                        "point_y": 50
+                                    }
+                                }
+                            ],
+                            "plot_coordinates": [
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                },
+                                {
+                                    "point_x": 30,
+                                    "point_y": 50
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+   }
+}

@@ -1,0 +1,53 @@
+{
+   "status": "success",
+   "status_code": 200,
+   "message_error":"",
+   "result":{
+      "total_page":10,
+      "page": 1,
+      "user_list":[
+         {
+            "user_id":9999,
+            "status":"created",
+            "first_name":"example firstname",
+            "last_name":"example lastname",
+            "nick_name":"nick",
+            "phone":"088XXXXXXX",
+            "email":"example@mail.com",
+            "citizen_id":"0000000000000",
+            "parent_name":"parent example",
+            "parent_phone":"088XXXXXXX",
+            "remark":"example",
+            "birth_date":"2020-12-01T00:00:00",
+            "gender":"male",
+            "line_id":"@example",
+            "address":"99/999 road address city 10000",
+            "profile_image":"https://st3.depositphotos.com/4111759/13425/v/600/depositphotos_134255634-stock-illustration-avatar-icon-male-profile-gray.jpg",
+            "report_id":9999,
+            "finger_id": "xx00000",
+            "latest_modified":"2020-12-01T00:45:04"
+         },
+         {
+            "user_id":9998,
+            "status":"created",
+            "first_name":"example firstname",
+            "last_name":"example lastname",
+            "nick_name":"nick",
+            "phone":"088XXXXXXX",
+            "email":"example@mail.com",
+            "citizen_id":"0000000000000",
+            "parent_name":"parent example",
+            "parent_phone":"088XXXXXXX",
+            "remark":"example",
+            "birth_date":"2020-12-01T00:00:00",
+            "gender":"male",
+            "line_id":"@example",
+            "address":"99/999 road address city 10000",
+            "profile_image":"https://st3.depositphotos.com/4111759/13425/v/600/depositphotos_134255634-stock-illustration-avatar-icon-male-profile-gray.jpg",
+            "report_id":9999,
+            "finger_id": "xx00001",
+            "latest_modified":"2020-12-01T00:45:04"
+         }
+      ]
+   }
+}

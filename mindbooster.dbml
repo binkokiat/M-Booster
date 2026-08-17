@@ -1,0 +1,231 @@
+Project MindBooster {
+    database_type: 'PostgreSQL'
+    note: '''
+        ## Mind Booster Database
+    '''
+}
+
+Table tb_users as User {
+    id varchar [pk, unique, not null]
+    created_at timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+    status varchar [not null, default: 'Created', note: 'Created, Ready to Review, Approved, Disapproved, AI-Processing, AI-Resulted, Analyst Reviewed, Export to Report, Reported']
+    first_name varchar
+    last_name varchar
+    nick_name varchar [not null, note: 'Required fields']
+    phone varchar
+    email varchar
+    password varchar
+    citizen_id varchar [unique]
+    parent_name varchar
+    parent_phone varchar
+    remark varchar
+    birth_date timestamp [note: 'Format: yyyy-MM-dd HH:mm:ss']
+    gender varchar [note:'male, female']
+    line_id varchar
+    address varchar
+    profile_image varchar [note: 'image url']
+    report_id varchar [ref: - Report.id]
+    disapproved_report varchar
+    finger_id varchar [ref: - FingerPrint.id]
+    secret varchar
+    latest_modified timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+}
+
+Table tb_fingerprint as FingerPrint {
+    id varchar [primary key, unique, not null]
+    latest_modified timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+    
+}
+
+Table tb_side_finger as SideFinger {
+    id varchar [primary key, unique, not null]
+    finger_id varchar [ref: > FingerPrint.id]
+    side varchar [not null, note: 'left, right']
+    finger varchar [not null, note: 'thumb, index, middle, ring, pinkie']
+    ai_type varchar [note: 'Wt, Ws, We, Wi, Wc, Wd, Wp, Wl, Wx, U, R, Lf, As, At, Au, Ar']
+    ai_RC1 integer
+    ai_RC2 integer
+    analyst_type varchar [note: 'Wt, Ws, We, Wi, Wc, Wd, Wp, Wl, Wx, U, R, Lf, As, At, Au, Ar']
+    analyst_RC1 integer
+    analyst_RC2 integer
+    latest_modified timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+}
+
+Table tb_fingerprint_angle as FingerAngle {
+    id varchar [primary key, unique, not null]
+    side_finger_id varchar [ref: > SideFinger.id]
+    angle varchar [not null, note: 'angle_1, angle_2, angle_3, angle_4, angle_5, angle_6, angle_7']
+    image varchar [note: 'image url']
+    ai_RC integer
+    ai_count_image varchar [note: 'image url']
+    ai_enhanced_image varchar [note: 'image url']
+    analyst_RC integer
+    line varchar
+    plot_coordinates varchar
+    latest_modified timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+}
+
+Table tb_operate {
+    id varchar [primary key, unique, not null]
+    user_id varchar [ref: > User.id]
+    officer_collector varchar [ref: > Officer.id]
+    latest_modified timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+}
+
+Table tb_officer as Officer {
+    id varchar [primary key, unique, not null]
+    role varchar [note: 'Collector, Analyst']
+    name varchar
+    profile_image varchar [note: 'image url']
+    email varchar
+    password varchar
+    status varchar  [default: 'Created', note: 'Created, Deleted']
+    latest_modified timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+}
+
+Table tb_user_group as UserGroup { 
+    id varchar [primary key, unique, not null]
+    user varchar [ref: > User.id]
+    group varchar [ref: > Group.id]
+    role varchar [note: 'Super Leader, Leader, Member']
+    latest_modified timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+}
+
+Table tb_group as Group {
+    id varchar [primary key, unique, not null]
+    parent varchar [ref: > Group.id]
+    name varchar
+    email varchar
+    phone varchar
+    address varchar
+    profile_image varchar [note: 'image url']
+    created_at timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+    category varchar  [note: 'Family, School, Organization']
+    latest_modified timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+}
+
+Table tb_imformation as information {
+    id varchar [primary key, unique, not null]
+    mb_code varchar
+    age_range varchar
+    group varchar
+    type varchar
+    detail varchar
+    status varchar [note: 'Enabled, Disabled']
+    latest_modified timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+}
+
+Table tb_report as Report {
+    id varchar [primary key, unique, not null]
+    mydna_id varchar
+    first_name varchar
+    last_name varchar
+    nick_name varchar
+    class varchar
+    age integer
+    avg_pre integer
+    acha_01 varchar
+    acha_02 varchar
+    acha_03 varchar
+    acha_04 varchar
+    fcha_01 varchar
+    fcha_02 varchar
+    fcha_03 varchar
+    fcha_04 varchar
+    scha_01 varchar
+    scha_02 varchar
+    mcha_01 varchar
+    mcha_02 varchar
+    mcha_03 varchar
+    mcha_04 varchar
+    mcha_11 varchar
+    mcha_12 varchar
+    mcha_13 varchar
+    mcha_14 varchar
+    dver_ww varchar
+    dver_wp varchar
+    dver_pw varchar
+    dver_pp varchar
+    dver varchar
+    lsty_cp varchar
+    lsty_rp varchar
+    lsty_kp varchar
+    lsty_ap varchar
+    lsty_vp varchar
+    pre_l1 integer
+    pre_l2 integer
+    pre_l3 integer
+    pre_l4 integer
+    pre_l5 integer
+    pre_r1 integer
+    pre_r2 integer
+    pre_r3 integer
+    pre_r4 integer
+    pre_r5 integer
+    post_l1 integer
+    post_l2 integer
+    post_l3 integer
+    post_l4 integer
+    post_l5 integer
+    post_r1 integer
+    post_r2 integer
+    post_r3 integer
+    post_r4 integer
+    post_r5 integer
+    a_l1 integer
+    a_l2 integer
+    a_l3 integer
+    a_l4 integer
+    a_l5 integer
+    a_r1 integer
+    a_r2 integer
+    a_r3 integer
+    a_r4 integer
+    a_r5 integer
+    pre_act_01 integer
+    pre_act_02 integer
+    pre_act_03 integer
+    pre_act_04 integer
+    pre_act_05 integer
+    pre_act_06 integer
+    pre_act_07 integer
+    pre_act_08 integer
+    pre_act_09 integer
+    pre_act_10 integer
+    pre_act_11 integer
+    pre_act_12 integer
+    pre_act_13 integer
+    pre_act_14 integer
+    pre_act_15 integer
+    post_act_01 integer
+    post_act_02 integer
+    post_act_03 integer
+    post_act_04 integer
+    post_act_05 integer
+    post_act_06 integer
+    post_act_07 integer
+    post_act_08 integer
+    post_act_09 integer
+    post_act_10 integer
+    post_act_11 integer
+    post_act_12 integer
+    post_act_13 integer
+    post_act_14 integer
+    post_act_15 integer
+    a_act_01 integer
+    a_act_02 integer
+    a_act_03 integer
+    a_act_04 integer
+    a_act_05 integer
+    a_act_06 integer
+    a_act_07 integer
+    a_act_08 integer
+    a_act_09 integer
+    a_act_10 integer
+    a_act_11 integer
+    a_act_12 integer
+    a_act_13 integer
+    a_act_14 integer
+    a_act_15 integer
+    latest_modified timestamp [default: `now()`, note: 'Format: yyyy-MM-dd HH:mm:ss']
+}

@@ -1,0 +1,17 @@
+{
+   "first_name":"example firstname",
+   "last_name":"example lastname",
+   "nick_name":"nick",
+   "phone":"088XXXXXXX",
+   "email":"example@mail.com",
+   "citizen_id":"0000000000000",
+   "parent_name":"parent example",
+   "parent_phone":"088XXXXXXX",
+   "remark":"example",
+   "birth_date":"2020-12-01T00:00:00",
+   "gender":"male",
+   "line_id":"@example",
+   "address":"99/999 road address city 10000",
+   "profile_image":"http://image.com",
+   "latest_modified":"2020-12-01T00:45:04"
+}

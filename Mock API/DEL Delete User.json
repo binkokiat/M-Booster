@@ -1,0 +1,14 @@
+{
+   "status": "success",
+   "status_code": 200,
+   "message_error":"",
+   "result":{
+      "user_deleted":[
+          9999,
+          9998,
+          9997,
+          9996,
+          9995
+      ]
+   }
+}
