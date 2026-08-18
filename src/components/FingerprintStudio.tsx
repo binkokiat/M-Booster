@@ -786,37 +786,60 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
           {/* Center & Right: Finger Canvas, Angles, Plotting & Classification */}
           <div className="lg:col-span-8 space-y-4">
             
-            {/* 7 Angles Tabs & Scanner Quick Trigger */}
-            <div className="flex items-center justify-between bg-slate-100 p-1.5 rounded-lg border border-slate-200 gap-2">
-              <div className="flex items-center space-x-2 overflow-x-auto pb-0.5 flex-1">
-                {[1, 2, 3, 4, 5, 6, 7].map((num) => {
-                  const angleKey = `angle_${num}`;
-                  const hasImg = !!currentFinger.angles?.[angleKey]?.image;
-                  return (
+            {/* Dynamic Rolling Shots Tabs & Scanner Trigger */}
+            <div className="flex flex-wrap items-center justify-between bg-slate-100 p-2 rounded-xl border border-slate-200 gap-2">
+              <div className="flex items-center space-x-1.5 overflow-x-auto pb-0.5 flex-1">
+                {Object.keys(currentFinger.angles || {}).length > 0 ? (
+                  Object.keys(currentFinger.angles).map((angKey, idx) => {
+                    const angData = currentFinger.angles[angKey];
+                    const hasImg = !!angData?.image;
+                    const label = angKey === 'core' || angKey === 'angle_1' ? '1. Core' :
+                                  angKey === 'delta_left' || angKey === 'angle_2' ? '2. Delta L' :
+                                  angKey === 'delta_right' || angKey === 'angle_3' ? '3. Delta R' :
+                                  angKey === 'edge_top' || angKey === 'angle_4' ? '4. สันบน' :
+                                  angKey === 'edge_bottom' || angKey === 'angle_5' ? '5. สันล่าง' :
+                                  `+ภาพ (${idx + 1})`;
+
+                    return (
+                      <button
+                        key={angKey}
+                        onClick={() => setActiveAngle(angKey)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 shrink-0 transition-all cursor-pointer ${
+                          activeAngle === angKey
+                            ? 'bg-[#466BB2] text-white shadow-xs'
+                            : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                        }`}
+                      >
+                        <span>{label}</span>
+                        {hasImg && <span className="w-2 h-2 rounded-full bg-emerald-400" />}
+                      </button>
+                    );
+                  })
+                ) : (
+                  ['core', 'delta_left', 'delta_right'].map((posKey) => (
                     <button
-                      key={num}
-                      onClick={() => setActiveAngle(angleKey)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center space-x-1.5 shrink-0 transition-all ${
-                        activeAngle === angleKey
+                      key={posKey}
+                      onClick={() => setActiveAngle(posKey)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 shrink-0 transition-all ${
+                        activeAngle === posKey
                           ? 'bg-[#466BB2] text-white shadow-xs'
-                          : 'bg-white text-slate-700 hover:bg-slate-50'
+                          : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
                       }`}
                     >
-                      <span>มุมที่ {num} (Angle {num})</span>
-                      {hasImg && <span className="w-2 h-2 rounded-full bg-emerald-400" />}
+                      <span>{posKey === 'core' ? '1. Core' : posKey === 'delta_left' ? '2. Delta L' : '3. Delta R'}</span>
                     </button>
-                  );
-                })}
+                  ))
+                )}
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsFutronicModalOpen(true)}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md flex items-center space-x-1.5 shrink-0 shadow-xs transition-all animate-pulse"
+                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shrink-0 shadow-xs transition-all cursor-pointer"
                 title="เปิดสตูดิโอสแกนเนอร์ Futronic FS80H"
               >
                 <Cpu className="w-3.5 h-3.5 text-amber-300" />
-                <span>เชื่อมต่อเครื่องสแกน FS80H</span>
+                <span>สถานีสแกนเนอร์ FS80H</span>
               </button>
             </div>
 
@@ -1106,6 +1129,7 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
         fingerNameTh={currentFinger.finger_name_th}
         activeAngle={activeAngle}
         patternType={currentFinger.analyst_type || currentFinger.ai_type || 'Wt'}
+        clientId={client.id}
         onApplyScan={handleApplyFutronicScan}
         onNextAngle={handleNextAngle}
         existingFingerprints={fingerprints}

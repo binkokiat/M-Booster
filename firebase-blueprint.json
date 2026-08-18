@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "Client": {
+      "title": "Client",
+      "description": "Client profile containing biometric capture metadata and personal info",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id_code": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "maxLength": 64 },
+        "first_name": { "type": "string", "maxLength": 100 },
+        "last_name": { "type": "string", "maxLength": 100 },
+        "nick_name": { "type": "string", "maxLength": 50 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string", "maxLength": 150 },
+        "gender": { "type": "string", "maxLength": 20 },
+        "created_at": { "type": "string", "maxLength": 60 },
+        "latest_modified": { "type": "string", "maxLength": 60 }
+      },
+      "required": ["id", "user_id_code", "first_name", "created_at"]
+    },
+    "ScanRecord": {
+      "title": "ScanRecord",
+      "description": "Biometric fingerprint scans with flexible shots (Core, Delta L, Delta R, Edges) per finger for FS80H scanner",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "client_id": { "type": "string", "maxLength": 128 },
+        "fingerprints": { "type": "object" },
+        "captured_at": { "type": "string", "maxLength": 60 },
+        "updated_at": { "type": "string", "maxLength": 60 },
+        "device": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "client_id", "fingerprints"]
+    }
+  },
+  "firestore": {
+    "/clients/{clientId}": {
+      "schema": "Client",
+      "description": "Client profile documents"
+    },
+    "/scans/{scanId}": {
+      "schema": "ScanRecord",
+      "description": "Fingerprint scan records with dynamic shot positions per finger"
+    }
+  }
+}

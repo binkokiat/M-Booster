@@ -34,8 +34,20 @@ export interface LineSegment {
   type?: 'delta-core' | 'atd-a' | 'atd-t' | 'atd-d';
 }
 
+export type RollPositionType = 
+  | 'core'           // กึ่งกลาง (Core)
+  | 'delta_left'     // พลิกซ้ายเก็บ Delta ซ้าย
+  | 'delta_right'    // พลิกขวาเก็บ Delta ขวา
+  | 'edge_top'       // พลิกสันบน
+  | 'edge_bottom'    // พลิกสันล่าง
+  | 'edge_left'      // พลิกขอบข้างซ้าย
+  | 'edge_right'     // พลิกขอบข้างขวา
+  | 'custom';        // รูปเพิ่มเติม
+
 export interface FingerAngleData {
   image: string;
+  position_type?: RollPositionType;
+  position_label_th?: string;
   ai_RC?: number;
   analyst_RC?: number;
   ai_count_image?: string;

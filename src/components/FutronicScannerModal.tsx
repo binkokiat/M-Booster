@@ -13,7 +13,6 @@ import {
   Info,
   Maximize2,
   Crosshair,
-  Move,
   Camera,
   ChevronRight,
   ShieldCheck,
@@ -23,25 +22,25 @@ import {
   Contrast,
   Check,
   Hand,
-  Compass,
   Volume2,
   VolumeX,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  RotateCw
+  Plus,
+  Trash2,
+  Cloud,
+  CloudCheck,
+  CloudOff
 } from 'lucide-react';
-import { FingerKey, FingerprintItem } from '../types';
+import { FingerKey, FingerprintItem, RollPositionType } from '../types';
 import { 
   DEFAULT_FUTRONIC_ENDPOINT, 
   checkFutronicServerStatus, 
   startHttpCapture, 
-  generateLiveSimulationFrame,
+  generateContinuousLiveLoopFrame,
   generateSimulatedFS80HScan, 
   playCaptureChime,
   ScannerStatus 
 } from '../utils/futronicService';
+import { db, doc, setDoc, handleFirestoreError, OperationType } from '../firebase';
 
 interface FutronicScannerModalProps {
   isOpen: boolean;
@@ -49,10 +48,12 @@ interface FutronicScannerModalProps {
   selectedFingerKey: FingerKey;
   fingerNameTh: string;
   activeAngle: string;
-  patternType: string;
+  patternType?: string;
+  clientId?: string;
   onApplyScan: (dataUrl: string, targetAngle?: string, targetFingerKey?: FingerKey) => void;
   onNextAngle?: () => void;
   existingFingerprints?: Record<FingerKey, FingerprintItem>;
+  onBulkUpdateFingerprints?: (updated: Record<FingerKey, FingerprintItem>) => void;
 }
 
 // 10 Fingers strictly ordered: Left hand (Thumb -> Pinky), then Right hand (Thumb -> Pinky)
@@ -62,101 +63,37 @@ const FINGERS_ORDER: {
   handTh: string; 
   fingerNameTh: string; 
   shortName: string;
-  defaultType: string;
 }[] = [
   // มือซ้าย (Left Hand)
-  { key: 'L1', hand: 'left', handTh: 'มือซ้าย', fingerNameTh: 'นิ้วโป้งซ้าย', shortName: 'โป้งซ้าย (L1)', defaultType: 'Wt' },
-  { key: 'L2', hand: 'left', handTh: 'มือซ้าย', fingerNameTh: 'นิ้วชี้ซ้าย', shortName: 'ชี้ซ้าย (L2)', defaultType: 'UL' },
-  { key: 'L3', hand: 'left', handTh: 'มือซ้าย', fingerNameTh: 'นิ้วกลางซ้าย', shortName: 'กลางซ้าย (L3)', defaultType: 'UL' },
-  { key: 'L4', hand: 'left', handTh: 'มือซ้าย', fingerNameTh: 'นิ้วนางซ้าย', shortName: 'นางซ้าย (L4)', defaultType: 'UL' },
-  { key: 'L5', hand: 'left', handTh: 'มือซ้าย', fingerNameTh: 'นิ้วก้อยซ้าย', shortName: 'ก้อยซ้าย (L5)', defaultType: 'UL' },
+  { key: 'L1', hand: 'left', handTh: 'มือซ้าย', fingerNameTh: 'นิ้วโป้งซ้าย', shortName: 'โป้งซ้าย (L1)' },
+  { key: 'L2', hand: 'left', handTh: 'มือซ้าย', fingerNameTh: 'นิ้วชี้ซ้าย', shortName: 'ชี้ซ้าย (L2)' },
+  { key: 'L3', hand: 'left', handTh: 'มือซ้าย', fingerNameTh: 'นิ้วกลางซ้าย', shortName: 'กลางซ้าย (L3)' },
+  { key: 'L4', hand: 'left', handTh: 'มือซ้าย', fingerNameTh: 'นิ้วนางซ้าย', shortName: 'นางซ้าย (L4)' },
+  { key: 'L5', hand: 'left', handTh: 'มือซ้าย', fingerNameTh: 'นิ้วก้อยซ้าย', shortName: 'ก้อยซ้าย (L5)' },
   // มือขวา (Right Hand)
-  { key: 'R1', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วโป้งขวา', shortName: 'โป้งขวา (R1)', defaultType: 'Wt' },
-  { key: 'R2', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วชี้ขวา', shortName: 'ชี้ขวา (R2)', defaultType: 'UL' },
-  { key: 'R3', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วกลางขวา', shortName: 'กลางขวา (R3)', defaultType: 'UL' },
-  { key: 'R4', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วนางขวา', shortName: 'นางขวา (R4)', defaultType: 'UL' },
-  { key: 'R5', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วก้อยขวา', shortName: 'ก้อยขวา (R5)', defaultType: 'UL' },
+  { key: 'R1', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วโป้งขวา', shortName: 'โป้งขวา (R1)' },
+  { key: 'R2', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วชี้ขวา', shortName: 'ชี้ขวา (R2)' },
+  { key: 'R3', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วกลางขวา', shortName: 'กลางขวา (R3)' },
+  { key: 'R4', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วนางขวา', shortName: 'นางขวา (R4)' },
+  { key: 'R5', hand: 'right', handTh: 'มือขวา', fingerNameTh: 'นิ้วก้อยขวา', shortName: 'ก้อยขวา (R5)' },
 ];
 
-// Positions 1 to 7 arranged left to right with specific angle-hunting guidance
-const POSITIONS_1_TO_7 = [
-  { 
-    num: 1, 
-    id: 'angle_1', 
-    label: '1. ตรงกลาง', 
-    desc: 'วางกึ่งกลางนิ้ว (Core)', 
-    instruction: 'วางนิ้วตรงกลางกระจก ให้จุดศูนย์กลาง (Core) อยู่ตรงเป้าเล็ง',
-    iconDir: 'center',
-    offsetX: 0, 
-    offsetY: 0, 
-    rot: 0 
-  },
-  { 
-    num: 2, 
-    id: 'angle_2', 
-    label: '2. เอียงซ้าย', 
-    desc: 'เอียงซ้ายจับ Delta ซ้าย', 
-    instruction: 'ขยับเอียงนิ้วไปทางซ้าย ~15° เพื่อให้จุด Delta ซ้ายเข้ากรอบ',
-    iconDir: 'left',
-    offsetX: -35, 
-    offsetY: 8, 
-    rot: -14 
-  },
-  { 
-    num: 3, 
-    id: 'angle_3', 
-    label: '3. เอียงขวา', 
-    desc: 'เอียงขวาจับ Delta ขวา', 
-    instruction: 'ขยับเอียงนิ้วไปทางขวา ~15° เพื่อให้จุด Delta ขวาเข้ากรอบ',
-    iconDir: 'right',
-    offsetX: 35, 
-    offsetY: 8, 
-    rot: 14 
-  },
-  { 
-    num: 4, 
-    id: 'angle_4', 
-    label: '4. สันบน', 
-    desc: 'ขยับขึ้นบนเก็บสันบน', 
-    instruction: 'เลื่อนขยับนิ้วขึ้นด้านบน เพื่อเก็บลวดลายส่วนปลายสันนิ้ว',
-    iconDir: 'up',
-    offsetX: 0, 
-    offsetY: -36, 
-    rot: 0 
-  },
-  { 
-    num: 5, 
-    id: 'angle_5', 
-    label: '5. สันล่าง', 
-    desc: 'ขยับลงล่างเก็บสันล่าง', 
-    instruction: 'เลื่อนขยับนิ้วลงด้านล่าง เพื่อเก็บบริเวณโคนและข้อพับนิ้ว',
-    iconDir: 'down',
-    offsetX: 0, 
-    offsetY: 36, 
-    rot: 0 
-  },
-  { 
-    num: 6, 
-    id: 'angle_6', 
-    label: '6. เฉียงซ้ายบน', 
-    desc: 'เก็บขอบซ้ายบน', 
-    instruction: 'เอียงเฉียงไปทางซ้ายบน เพื่อเก็บบริเวณขอบข้างด้านซ้าย',
-    iconDir: 'up-left',
-    offsetX: -26, 
-    offsetY: -24, 
-    rot: -10 
-  },
-  { 
-    num: 7, 
-    id: 'angle_7', 
-    label: '7. เฉียงขวาบน', 
-    desc: 'เก็บขอบขวาบน', 
-    instruction: 'เอียงเฉียงไปทางขวาบน เพื่อเก็บบริเวณขอบข้างด้านขวา',
-    iconDir: 'up-right',
-    offsetX: 26, 
-    offsetY: -24, 
-    rot: 10 
-  },
+// Physical Finger Rolling positions on FS80H scanner glass
+export interface StandardPositionDef {
+  id: string;
+  type: RollPositionType;
+  label: string;
+  desc: string;
+  shortLabel: string;
+  guide: string;
+}
+
+const DEFAULT_STANDARD_POSITIONS: StandardPositionDef[] = [
+  { id: 'core', type: 'core', label: '1. จุดกึ่งกลาง (Core)', desc: 'Core Center', shortLabel: 'Core', guide: 'วางกึ่งกลางนิ้วให้เห็นจุดศูนย์กลางชัดเจน' },
+  { id: 'delta_left', type: 'delta_left', label: '2. พลิกซ้าย (Delta L)', desc: 'Delta Left', shortLabel: 'Delta L', guide: 'พลิกเอียงนิ้วด้านซ้ายแนบกระจกเพื่อจับจุดสามแยกซ้าย' },
+  { id: 'delta_right', type: 'delta_right', label: '3. พลิกขวา (Delta R)', desc: 'Delta Right', shortLabel: 'Delta R', guide: 'พลิกเอียงนิ้วด้านขวาแนบกระจกเพื่อจับจุดสามแยกขวา' },
+  { id: 'edge_top', type: 'edge_top', label: '4. พลิกสันบน (Top)', desc: 'Top Ridge', shortLabel: 'สันบน', guide: 'พลิกเก็บส่วนยอดปลายนิ้ว' },
+  { id: 'edge_bottom', type: 'edge_bottom', label: '5. พลิกสันล่าง (Base)', desc: 'Base Ridge', shortLabel: 'สันล่าง', guide: 'พลิกเก็บส่วนข้อพับล่าง' },
 ];
 
 export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
@@ -164,30 +101,31 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   onClose,
   selectedFingerKey: initialFingerKey,
   activeAngle: initialActiveAngle,
-  patternType,
+  patternType = 'Wt',
+  clientId = 'demo_client',
   onApplyScan,
-  existingFingerprints
+  existingFingerprints,
+  onBulkUpdateFingerprints
 }) => {
-  // Current active finger and angle
+  // Current active finger and position
   const [currentFingerKey, setCurrentFingerKey] = useState<FingerKey>(initialFingerKey || 'L1');
-  const [currentAngleId, setCurrentAngleId] = useState<string>(initialActiveAngle || 'angle_1');
+  const [currentAngleId, setCurrentAngleId] = useState<string>(initialActiveAngle || 'core');
 
   // Input Modes: 'hardware_fs80h' | 'camera' | 'upload' | 'simulation'
   const [inputMode, setInputMode] = useState<'hardware_fs80h' | 'camera' | 'upload' | 'simulation'>('hardware_fs80h');
   const [endpointUrl, setEndpointUrl] = useState<string>(DEFAULT_FUTRONIC_ENDPOINT);
   const [scannerStatus, setScannerStatus] = useState<ScannerStatus>('ready');
-  const [statusMessage, setStatusMessage] = useState<string>('วางกึ่งกลางนิ้วลงบนกระจกสแกนเพื่อแสดงผลภาพทันที');
+  const [statusMessage, setStatusMessage] = useState<string>('Continuous Frame Loop พร้อมแสดงผลภาพสด');
   const [isHardwareScanning, setIsHardwareScanning] = useState<boolean>(false);
   
   // Real Captured / Current Live Frame
   const [currentFrame, setCurrentFrame] = useState<string>('');
   const [frameSource, setFrameSource] = useState<'real_hardware' | 'real_camera' | 'real_upload' | 'simulation'>('real_hardware');
-  const [qualityScore, setQualityScore] = useState<number>(98);
+  const [fpsCounter, setFpsCounter] = useState<number>(30);
   
   // Camera State
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [cameraEnhance, setCameraEnhance] = useState<boolean>(true);
   
   // Image Filters / Adjustments
   const [brightness, setBrightness] = useState<number>(100);
@@ -197,503 +135,490 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [showDeltas, setShowDeltas] = useState<boolean>(true);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  
-  // Dynamic Live Finger Movement State (ขยับนิ้ว เปลี่ยนแปลงรูปตามทันที)
-  const [fingerOffset, setFingerOffset] = useState<{ x: number; y: number; rot: number }>({ x: 0, y: 0, rot: 0 });
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Auto-advance & Settings
   const [autoAdvance, setAutoAdvance] = useState<boolean>(true);
   const [showSettings, setShowSettings] = useState<boolean>(false);
+
+  // Firebase Cloud Sync State
+  const [firebaseSyncing, setFirebaseSyncing] = useState<boolean>(false);
+  const [firebaseStatus, setFirebaseStatus] = useState<'synced' | 'unsaved' | 'error'>('synced');
+  const [firebaseMsg, setFirebaseMsg] = useState<string>('เชื่อมต่อ Firebase Firestore แล้ว');
   
-  // Captured snapshot history across all 10 fingers & 7 positions: Record<FingerKey, Record<string, string>>
-  const [capturedMatrix, setCapturedMatrix] = useState<Record<string, Record<string, string>>>(() => {
-    const init: Record<string, Record<string, string>> = {};
+  // Dynamic Fingerprint Matrix: Record<FingerKey, Record<string, { image: string; type: RollPositionType; label: string }>>
+  const [capturedMatrix, setCapturedMatrix] = useState<Record<string, Record<string, { image: string; type: RollPositionType; label: string }>>>(() => {
+    const init: Record<string, Record<string, { image: string; type: RollPositionType; label: string }>> = {};
+    
+    // Seed from existing fingerprints if available
     if (existingFingerprints) {
       Object.keys(existingFingerprints).forEach(fKey => {
         const finger = existingFingerprints[fKey as FingerKey];
         if (finger && finger.angles) {
           init[fKey] = {};
           Object.keys(finger.angles).forEach(angKey => {
-            if (finger.angles[angKey]?.image) {
-              init[fKey][angKey] = finger.angles[angKey].image;
+            const angData = finger.angles[angKey];
+            if (angData?.image) {
+              const mappedId = angKey === 'angle_1' ? 'core' : 
+                               angKey === 'angle_2' ? 'delta_left' : 
+                               angKey === 'angle_3' ? 'delta_right' : 
+                               angKey === 'angle_4' ? 'edge_top' : 
+                               angKey === 'angle_5' ? 'edge_bottom' : angKey;
+              init[fKey][mappedId] = {
+                image: angData.image,
+                type: angData.position_type || (mappedId as RollPositionType) || 'core',
+                label: angData.position_label_th || mappedId
+              };
             }
           });
         }
       });
     }
+    
+    // Ensure all 10 fingers exist
+    FINGERS_ORDER.forEach(f => {
+      if (!init[f.key]) {
+        init[f.key] = {};
+      }
+    });
+
     return init;
   });
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const sensorContainerRef = useRef<HTMLDivElement | null>(null);
+  const frameLoopRef = useRef<number | null>(null);
+  const frameCountRef = useRef<number>(0);
 
-  // Sync initial selections on open
-  useEffect(() => {
-    if (initialFingerKey) setCurrentFingerKey(initialFingerKey);
-    if (initialActiveAngle) setCurrentAngleId(initialActiveAngle);
-  }, [initialFingerKey, initialActiveAngle]);
+  // Current active finger definition
+  const currentFingerDef = FINGERS_ORDER.find(f => f.key === currentFingerKey) || FINGERS_ORDER[0];
+  const currentAngleDef = DEFAULT_STANDARD_POSITIONS.find(p => p.id === currentAngleId) || {
+    id: currentAngleId,
+    type: 'custom' as RollPositionType,
+    label: `รูปเพิ่มเติม (${currentAngleId})`,
+    desc: 'Custom Shot',
+    shortLabel: currentAngleId,
+    guide: 'พลิกเก็บมุมภาพเพิ่มเติมตามความเหมาะสม'
+  };
 
-  // Sync existingFingerprints into capturedMatrix when opened
-  useEffect(() => {
-    if (existingFingerprints) {
-      setCapturedMatrix(prev => {
-        const next = { ...prev };
-        Object.keys(existingFingerprints).forEach(fKey => {
-          const finger = existingFingerprints[fKey as FingerKey];
-          if (finger && finger.angles) {
-            next[fKey] = next[fKey] || {};
-            Object.keys(finger.angles).forEach(angKey => {
-              if (finger.angles[angKey]?.image) {
-                next[fKey][angKey] = finger.angles[angKey].image;
-              }
-            });
-          }
-        });
-        return next;
-      });
+  // Check Futronic FS80H Driver connection status
+  const checkDriverStatus = useCallback(async () => {
+    try {
+      const isOnline = await checkFutronicServerStatus(endpointUrl);
+      if (isOnline) {
+        setScannerStatus('connected');
+        setStatusMessage('ตรวจพบเครื่อง FS80H (พอร์ต 15270) พร้อมสแกน Continuous Frame');
+        setFrameSource('real_hardware');
+      } else {
+        setScannerStatus('disconnected');
+        setStatusMessage('ไม่พบ Local Driver พอร์ต 15270 (เข้าสู่โหมด Continuous Demo เพื่อทดลองงาน)');
+        if (inputMode === 'hardware_fs80h') {
+          // Keep hardware mode or fallback frame
+        }
+      }
+    } catch {
+      setScannerStatus('disconnected');
+      setStatusMessage('ไม่พบสัญญาณ Local Driver พอร์ต 15270');
     }
-  }, [existingFingerprints]);
+  }, [endpointUrl, inputMode]);
 
-  // When angle selection changes, smoothly move finger to that angle's preset pose
-  useEffect(() => {
-    const anglePreset = POSITIONS_1_TO_7.find(p => p.id === currentAngleId);
-    if (anglePreset) {
-      setFingerOffset({
-        x: anglePreset.offsetX,
-        y: anglePreset.offsetY,
-        rot: anglePreset.rot
-      });
-    }
-  }, [currentAngleId]);
-
-  // Continuous Live Frame Loop (renders dynamic motion in real-time for each finger)
-  useEffect(() => {
-    if (!isOpen) return;
-
-    if (inputMode === 'simulation' || inputMode === 'hardware_fs80h') {
-      const activeFingerDef = FINGERS_ORDER.find(f => f.key === currentFingerKey);
-      const currentFingerData = existingFingerprints?.[currentFingerKey];
-      const typeToUse = currentFingerData?.analyst_type || currentFingerData?.ai_type || activeFingerDef?.defaultType || 'Wt';
-      
-      const frame = generateLiveSimulationFrame(
-        currentFingerKey,
-        typeToUse,
-        fingerOffset.x,
-        fingerOffset.y,
-        (fingerOffset.rot * Math.PI) / 180,
-        1.0,
-        98
-      );
-      setCurrentFrame(frame.dataUrl);
-      setQualityScore(frame.clarity);
-    }
-  }, [isOpen, currentFingerKey, currentAngleId, fingerOffset, inputMode, existingFingerprints]);
-
-  // Check hardware driver status on open
+  // Initial Boot check
   useEffect(() => {
     if (isOpen) {
       checkDriverStatus();
-    } else {
-      stopCamera();
     }
-  }, [isOpen]);
+  }, [isOpen, checkDriverStatus]);
 
-  const checkDriverStatus = async () => {
-    setScannerStatus('checking');
-    setStatusMessage('กำลังตรวจหาสัญญาณจากเครื่องสแกน Futronic FS80H (พอร์ต 15270)...');
-    
-    const res = await checkFutronicServerStatus(endpointUrl);
-    if (res.isOnline) {
-      setScannerStatus('ready');
-      setStatusMessage('เชื่อมต่อ Local Driver สำเร็จ (พอร์ต 15270) — ภาพสดพร้อมแสดงผล');
-    } else {
-      setScannerStatus('ready');
-      setStatusMessage('วางกึ่งกลางนิ้วลงบนกระจกสแกนเนอร์ ขยับหรือเอียงหามุม แล้วกดบันทึกได้ทันที');
+  // Continuous Frame Loop Engine (Runs smoothly at 30 FPS)
+  useEffect(() => {
+    if (!isOpen) {
+      if (frameLoopRef.current) cancelAnimationFrame(frameLoopRef.current);
+      return;
     }
-  };
 
-  // Start Real Camera Stream
-  const startCamera = async () => {
-    try {
-      stopCamera();
-      const constraints: MediaStreamConstraints = {
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-      };
+    let lastTime = performance.now();
+    let frameRateCheck = performance.now();
+    let framesThisSecond = 0;
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      setCameraStream(stream);
-      setIsCameraActive(true);
-      setFrameSource('real_camera');
-      setStatusMessage('กล้องทำงานอยู่: วางนิ้วให้เห็นลายเส้นชัดเจนตรงกลางจอ');
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
+    const renderLoop = (time: number) => {
+      // Calculate FPS
+      framesThisSecond++;
+      if (time - frameRateCheck >= 1000) {
+        setFpsCounter(framesThisSecond);
+        framesThisSecond = 0;
+        frameRateCheck = time;
       }
-    } catch (err: any) {
-      console.error('Camera start error:', err);
-      setStatusMessage('ไม่สามารถเปิดกล้องได้: ' + (err.message || 'โปรดอนุญาตสิทธิ์'));
+
+      // Update frame every ~33ms (30 FPS) for smooth viewfinder
+      if (time - lastTime >= 33) {
+        lastTime = time;
+        frameCountRef.current++;
+
+        if (inputMode === 'simulation') {
+          // Generate realistic live continuous loop with finger rolling effect
+          const simulatedFrame = generateContinuousLiveLoopFrame(
+            frameCountRef.current,
+            zoomLevel,
+            invertImage,
+            brightness,
+            contrast
+          );
+          setCurrentFrame(simulatedFrame.dataUrl);
+          setFrameSource('simulation');
+        } else if (inputMode === 'hardware_fs80h' && scannerStatus !== 'connected') {
+          // Fallback simulation frame to allow user to experience the live viewport
+          const simulatedFrame = generateContinuousLiveLoopFrame(
+            frameCountRef.current,
+            zoomLevel,
+            invertImage,
+            brightness,
+            contrast
+          );
+          setCurrentFrame(simulatedFrame.dataUrl);
+        }
+      }
+
+      frameLoopRef.current = requestAnimationFrame(renderLoop);
+    };
+
+    frameLoopRef.current = requestAnimationFrame(renderLoop);
+
+    return () => {
+      if (frameLoopRef.current) {
+        cancelAnimationFrame(frameLoopRef.current);
+      }
+    };
+  }, [isOpen, inputMode, scannerStatus, patternType, currentAngleId]);
+
+  // Camera start / stop lifecycle
+  useEffect(() => {
+    if (inputMode === 'camera' && isOpen) {
+      navigator.mediaDevices?.getUserMedia({ 
+        video: { 
+          width: { ideal: 640 }, 
+          height: { ideal: 640 },
+          facingMode: 'environment' 
+        } 
+      })
+      .then(stream => {
+        setCameraStream(stream);
+        setIsCameraActive(true);
+        setFrameSource('real_camera');
+        setStatusMessage('กล้องพร้อมใช้งาน - ส่องนิ้วลงบนกรอบเพื่อถ่ายภาพ');
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      })
+      .catch(err => {
+        console.error('Camera access error:', err);
+        setStatusMessage('ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการเข้าถึงกล้อง');
+      });
+    } else {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        setCameraStream(null);
+      }
       setIsCameraActive(false);
     }
-  };
 
-  const stopCamera = () => {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
-      setCameraStream(null);
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [inputMode, isOpen]);
+
+  // Save scan snapshot into specific finger and position
+  const handleSaveToTarget = (targetFingerKey: FingerKey, targetPositionId: string, imageToSave?: string) => {
+    const frameData = imageToSave || currentFrame || generateSimulatedFS80HScan(targetFingerKey, patternType, 1).dataUrl;
+    if (!frameData) return;
+
+    if (soundEnabled) {
+      playCaptureChime();
     }
-    setIsCameraActive(false);
-  };
 
-  // Switch Input Modes
-  const handleModeChange = (mode: 'hardware_fs80h' | 'camera' | 'upload' | 'simulation') => {
-    setInputMode(mode);
-    if (mode === 'camera') {
-      startCamera();
-    } else {
-      stopCamera();
-      if (mode === 'simulation') {
-        setFrameSource('simulation');
-        setStatusMessage('โหมดจำลองภาพเส้นสันความละเอียดสูง (ขยับนิ้วบนหน้าจอได้อิสระ)');
-      } else if (mode === 'hardware_fs80h') {
-        setStatusMessage('โหมดเครื่องสแกน Futronic FS80H (พอร์ต 15270)');
+    const posDef = DEFAULT_STANDARD_POSITIONS.find(p => p.id === targetPositionId);
+    const posType = posDef?.type || 'custom';
+    const posLabel = posDef?.label || targetPositionId;
+
+    setCapturedMatrix(prev => {
+      const updated = { ...prev };
+      if (!updated[targetFingerKey]) {
+        updated[targetFingerKey] = {};
+      }
+      updated[targetFingerKey] = {
+        ...updated[targetFingerKey],
+        [targetPositionId]: {
+          image: frameData,
+          type: posType,
+          label: posLabel
+        }
+      };
+      return updated;
+    });
+
+    setFirebaseStatus('unsaved');
+
+    // Notify parent studio
+    onApplyScan(frameData, targetPositionId, targetFingerKey);
+
+    // Auto Advance to next position / finger if enabled
+    if (autoAdvance) {
+      const standardIds = DEFAULT_STANDARD_POSITIONS.map(p => p.id);
+      const currentIdx = standardIds.indexOf(targetPositionId);
+
+      if (currentIdx !== -1 && currentIdx < 2) {
+        // Move from Core -> Delta L -> Delta R
+        setCurrentAngleId(standardIds[currentIdx + 1]);
+      } else {
+        // Advance to next finger's Core
+        const fingerIdx = FINGERS_ORDER.findIndex(f => f.key === targetFingerKey);
+        if (fingerIdx !== -1 && fingerIdx < FINGERS_ORDER.length - 1) {
+          const nextFinger = FINGERS_ORDER[fingerIdx + 1];
+          setCurrentFingerKey(nextFinger.key);
+          setCurrentAngleId('core');
+        }
       }
     }
   };
 
-  // Real Hardware FS80H Scan Trigger
+  // Delete a specific captured shot from a finger
+  const handleDeleteShot = (targetFingerKey: FingerKey, positionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCapturedMatrix(prev => {
+      const updated = { ...prev };
+      if (updated[targetFingerKey]) {
+        const fingerShots = { ...updated[targetFingerKey] };
+        delete fingerShots[positionId];
+        updated[targetFingerKey] = fingerShots;
+      }
+      return updated;
+    });
+    setFirebaseStatus('unsaved');
+  };
+
+  // Add custom extra shot to a finger
+  const handleAddCustomShot = (targetFingerKey: FingerKey) => {
+    const existingShots = capturedMatrix[targetFingerKey] || {};
+    const customCount = Object.keys(existingShots).filter(k => k.startsWith('extra_')).length + 1;
+    const newId = `extra_${customCount}`;
+    setCurrentFingerKey(targetFingerKey);
+    setCurrentAngleId(newId);
+  };
+
+  // Direct Hardware Scan Trigger
   const handleHardwareScan = async () => {
     setIsHardwareScanning(true);
-    setScannerStatus('capturing');
-    setStatusMessage('กำลังเชื่อมต่อเซนเซอร์ FS80H... กรุณาวางนิ้วบนกระจกสแกนเนอร์');
-
+    setStatusMessage('กำลังเชื่อมต่อและรับภาพลายนิ้วมือ 500 DPI จาก FS80H...');
     try {
-      const result = await startHttpCapture(
-        endpointUrl,
-        (status, msg) => {
-          setScannerStatus(status);
-          setStatusMessage(msg);
-        },
-        invertImage
-      );
-
-      setCurrentFrame(result.dataUrl);
-      setFrameSource('real_hardware');
-      setQualityScore(99);
-      setScannerStatus('success');
-      setStatusMessage('สแกนลายนิ้วมือจริงจากเครื่อง FS80H สำเร็จ! (ความละเอียด 500 DPI)');
-      if (soundEnabled) playCaptureChime();
-    } catch (err: any) {
-      console.warn('Hardware scan fallback:', err);
-      const curAngleNum = parseInt(currentAngleId.replace('angle_', ''), 10) || 1;
-      const fallback = generateSimulatedFS80HScan(currentFingerKey, patternType, curAngleNum);
-      setCurrentFrame(fallback.dataUrl);
-      setFrameSource('real_hardware');
-      setScannerStatus('ready');
-      setStatusMessage(`สแกนภาพลายนิ้วมือ ${currentFingerKey} ตำแหน่งที่ ${curAngleNum} เรียบร้อยแล้ว`);
-      if (soundEnabled) playCaptureChime();
+      const result = await startHttpCapture(endpointUrl);
+      if (result && result.dataUrl) {
+        setCurrentFrame(result.dataUrl);
+        setFrameSource('real_hardware');
+        setScannerStatus('success');
+        setStatusMessage('สแกนภาพจากเครื่อง FS80H สำเร็จเรียบร้อย');
+        handleSaveToTarget(currentFingerKey, currentAngleId, result.dataUrl);
+      } else {
+        setStatusMessage('ไม่พบภาพจากเครื่อง FS80H (ตรวจเช็คการวางนิ้วและสาย USB)');
+      }
+    } catch {
+      setStatusMessage('การเชื่อมต่อกับ FS80H ขัดข้อง');
     } finally {
       setIsHardwareScanning(false);
     }
   };
 
-  // Capture Frame from Real Camera
+  // Capture from live camera
   const handleCaptureFromCamera = () => {
     if (!videoRef.current) return;
-    const video = videoRef.current;
     const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 480;
+    canvas.width = videoRef.current.videoWidth || 640;
+    canvas.height = videoRef.current.videoHeight || 640;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    const vWidth = video.videoWidth || 640;
-    const vHeight = video.videoHeight || 480;
-    const cropSize = Math.min(vWidth, vHeight);
-    const startX = (vWidth - cropSize) / 2;
-    const startY = (vHeight - cropSize) / 2;
-
-    ctx.drawImage(video, startX, startY, cropSize, cropSize, 0, 0, 320, 480);
-
-    if (cameraEnhance) {
-      const imgData = ctx.getImageData(0, 0, 320, 480);
-      const d = imgData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-        const enhanced = gray > 120 ? Math.min(255, gray * 1.3) : Math.max(0, gray * 0.7);
-        d[i] = enhanced;
-        d[i + 1] = enhanced;
-        d[i + 2] = enhanced;
-      }
-      ctx.putImageData(imgData, 0, 0);
-    }
-
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
     setCurrentFrame(dataUrl);
     setFrameSource('real_camera');
-    setStatusMessage('จับภาพลายนิ้วมือจากกล้องสำเร็จ!');
-    if (soundEnabled) playCaptureChime();
+    handleSaveToTarget(currentFingerKey, currentAngleId, dataUrl);
   };
+
+  // Spacebar capture & Keyboard 1-5 shortcuts
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Spacebar = Capture Current Frame into selected slot
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleSaveToTarget(currentFingerKey, currentAngleId);
+      }
+      // 1 to 5 = Switch standard rolling position
+      if (['1', '2', '3', '4', '5'].includes(e.key)) {
+        const num = parseInt(e.key, 10);
+        if (num >= 1 && num <= DEFAULT_STANDARD_POSITIONS.length) {
+          setCurrentAngleId(DEFAULT_STANDARD_POSITIONS[num - 1].id);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, currentFingerKey, currentAngleId, currentFrame, autoAdvance, soundEnabled]);
 
   // Upload File
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setCurrentFrame(reader.result);
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setCurrentFrame(dataUrl);
         setFrameSource('real_upload');
-        setScannerStatus('success');
-        setStatusMessage(`โหลดรูปภาพลายนิ้วมือจริงสำเร็จ: ${file.name}`);
-        if (soundEnabled) playCaptureChime();
+        handleSaveToTarget(currentFingerKey, currentAngleId, dataUrl);
       }
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   // Paste Image from Clipboard
   const handlePasteImage = async () => {
     try {
-      const clipboardItems = await navigator.clipboard.read();
-      for (const item of clipboardItems) {
-        const imageType = item.types.find(t => t.startsWith('image/'));
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imageType = item.types.find(type => type.startsWith('image/'));
         if (imageType) {
           const blob = await item.getType(imageType);
           const reader = new FileReader();
-          reader.onload = () => {
-            if (typeof reader.result === 'string') {
-              setCurrentFrame(reader.result);
+          reader.onload = (e) => {
+            const dataUrl = e.target?.result as string;
+            if (dataUrl) {
+              setCurrentFrame(dataUrl);
               setFrameSource('real_upload');
-              setScannerStatus('success');
-              setStatusMessage('วางภาพลายนิ้วมือจากคลิปบอร์ดสำเร็จ!');
-              if (soundEnabled) playCaptureChime();
+              handleSaveToTarget(currentFingerKey, currentAngleId, dataUrl);
             }
           };
           reader.readAsDataURL(blob);
           return;
         }
       }
-      alert('ไม่พบรูปภาพในคลิปบอร์ด');
-    } catch (err) {
-      const text = prompt('วาง DataURL ของภาพลายนิ้วมือ:');
-      if (text && text.startsWith('data:image/')) {
-        setCurrentFrame(text);
-        setFrameSource('real_upload');
-        setScannerStatus('success');
-      }
+      alert('ไม่พบรูปภาพในคลิปบอร์ด กรุณากดคัดลอกรูปภาพแล้วลองใหม่อีกครั้ง');
+    } catch {
+      alert('กรุณากดอนุญาตการอ่านคลิปบอร์ดในเบราว์เซอร์');
     }
   };
 
-  // Interactive Drag-to-Move Finger on Glass (ขยับนิ้วบนกระจกสแกนเนอร์อย่างลื่นไหล รองรับทั้งเมาส์และทัชสกรีน)
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - fingerOffset.x, y: e.clientY - fingerOffset.y });
-  };
+  // Save all captured matrix to Firebase Firestore
+  const handleSaveToFirebase = async () => {
+    setFirebaseSyncing(true);
+    setFirebaseMsg('กำลังบันทึกลายนิ้วมือขึ้น Firebase Firestore...');
+    try {
+      const scanDocRef = doc(db, 'scans', clientId || `scan_${Date.now()}`);
+      
+      // Structure clean payload
+      const payload: Record<string, any> = {
+        client_id: clientId,
+        updated_at: new Date().toISOString(),
+        device: 'Futronic FS80H Optical Scanner (500 DPI)',
+        fingerprints: {}
+      };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    const newX = Math.max(-65, Math.min(65, e.clientX - dragStart.x));
-    const newY = Math.max(-65, Math.min(65, e.clientY - dragStart.y));
-    const newRot = Math.round(newX * 0.35); // dynamic rotation when moving laterally
-    setFingerOffset({ x: newX, y: newY, rot: newRot });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length > 0) {
-      setIsDragging(true);
-      setDragStart({ x: e.touches[0].clientX - fingerOffset.x, y: e.touches[0].clientY - fingerOffset.y });
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || e.touches.length === 0) return;
-    const newX = Math.max(-65, Math.min(65, e.touches[0].clientX - dragStart.x));
-    const newY = Math.max(-65, Math.min(65, e.touches[0].clientY - dragStart.y));
-    const newRot = Math.round(newX * 0.35);
-    setFingerOffset({ x: newX, y: newY, rot: newRot });
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-  };
-
-  // Micro adjustments using controls
-  const handleNudge = (dx: number, dy: number, dr: number = 0) => {
-    setFingerOffset(prev => ({
-      x: Math.max(-65, Math.min(65, prev.x + dx)),
-      y: Math.max(-65, Math.min(65, prev.y + dy)),
-      rot: Math.max(-30, Math.min(30, prev.rot + dr))
-    }));
-  };
-
-  // Center Reset
-  const handleResetCenter = () => {
-    setFingerOffset({ x: 0, y: 0, rot: 0 });
-    setStatusMessage('วางนิ้วที่กึ่งกลางกระจกสแกน (Center Core)');
-  };
-
-  // Snap to preset angle alignment
-  const handleSnapToAnglePreset = (angleId: string) => {
-    const preset = POSITIONS_1_TO_7.find(p => p.id === angleId);
-    if (preset) {
-      setFingerOffset({ x: preset.offsetX, y: preset.offsetY, rot: preset.rot });
-      setStatusMessage(preset.instruction);
-    }
-  };
-
-  // Save current frame into specific target finger & angle
-  const handleSaveToTarget = useCallback((targetFinger: FingerKey, targetAngle: string) => {
-    let frameToSave = currentFrame;
-
-    if (inputMode === 'camera' && isCameraActive && videoRef.current) {
-      handleCaptureFromCamera();
-      frameToSave = currentFrame;
-    }
-
-    if (!frameToSave) {
-      const angleNum = parseInt(targetAngle.replace('angle_', ''), 10) || 1;
-      const gen = generateSimulatedFS80HScan(targetFinger, patternType, angleNum);
-      frameToSave = gen.dataUrl;
-      setCurrentFrame(gen.dataUrl);
-    }
-
-    // Play pleasant capture chime sound
-    if (soundEnabled) {
-      playCaptureChime();
-    }
-
-    // Save to local matrix state
-    setCapturedMatrix(prev => ({
-      ...prev,
-      [targetFinger]: {
-        ...(prev[targetFinger] || {}),
-        [targetAngle]: frameToSave
-      }
-    }));
-
-    // Apply to parent Fingerprint Studio state immediately
-    onApplyScan(frameToSave, targetAngle, targetFinger);
-
-    const fingerDef = FINGERS_ORDER.find(f => f.key === targetFinger);
-    const anglePreset = POSITIONS_1_TO_7.find(p => p.id === targetAngle);
-    setStatusMessage(`✅ บันทึก [${fingerDef?.shortName || targetFinger}] ${anglePreset?.label} สำเร็จ!`);
-
-    // Auto-advance sequence (1 -> 2 -> ... -> 7, then next finger L1..L5, R1..R5)
-    if (autoAdvance) {
-      const curAngleIndex = POSITIONS_1_TO_7.findIndex(p => p.id === targetAngle);
-      if (curAngleIndex < POSITIONS_1_TO_7.length - 1) {
-        // Move to next angle in same finger
-        const nextAngle = POSITIONS_1_TO_7[curAngleIndex + 1].id;
-        setCurrentAngleId(nextAngle);
-      } else {
-        // Move to next finger in order
-        const curFingerIndex = FINGERS_ORDER.findIndex(f => f.key === targetFinger);
-        if (curFingerIndex < FINGERS_ORDER.length - 1) {
-          const nextFinger = FINGERS_ORDER[curFingerIndex + 1].key;
-          setCurrentFingerKey(nextFinger);
-          setCurrentAngleId('angle_1');
-          setStatusMessage(`เลื่อนไปบันทึก ${FINGERS_ORDER[curFingerIndex + 1].shortName} ตำแหน่งที่ 1`);
-        } else {
-          setStatusMessage('🎉 บันทึกครบทั้ง 10 นิ้ว และ 7 ตำแหน่งแล้ว!');
+      Object.keys(capturedMatrix).forEach(fKey => {
+        const fingerData = capturedMatrix[fKey];
+        if (fingerData && Object.keys(fingerData).length > 0) {
+          payload.fingerprints[fKey] = {
+            shots_count: Object.keys(fingerData).length,
+            shots: fingerData
+          };
         }
-      }
-    }
-  }, [currentFrame, inputMode, isCameraActive, autoAdvance, onApplyScan, patternType, soundEnabled]);
+      });
 
-  // Capture Current Active Selection
-  const handleCaptureCurrentSelection = () => {
-    handleSaveToTarget(currentFingerKey, currentAngleId);
+      await setDoc(scanDocRef, payload, { merge: true });
+      
+      setFirebaseStatus('synced');
+      setFirebaseMsg('บันทึกข้อมูลขึ้น Firebase Firestore เรียบร้อยแล้ว (Realtime Sync)');
+      
+      // Also update client record status
+      const clientDocRef = doc(db, 'clients', clientId);
+      await setDoc(clientDocRef, {
+        latest_modified: new Date().toISOString(),
+        has_scans: true
+      }, { merge: true });
+
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `scans/${clientId}`);
+      setFirebaseStatus('error');
+      setFirebaseMsg('การบันทึก Firebase ขัดข้อง (ดูรายละเอียดในคอนโซล)');
+    } finally {
+      setFirebaseSyncing(false);
+    }
   };
 
-  // Keyboard Shortcuts (1-7, Arrow keys for nudging, and Spacebar)
-  useEffect(() => {
-    if (!isOpen) return;
+  // Mode Switch
+  const handleModeChange = (mode: 'hardware_fs80h' | 'camera' | 'upload' | 'simulation') => {
+    setInputMode(mode);
+    if (mode === 'hardware_fs80h') {
+      checkDriverStatus();
+    } else if (mode === 'simulation') {
+      setFrameSource('simulation');
+      setStatusMessage('Continuous Frame Loop Simulation (30 FPS)');
+    }
+  };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-      if (e.code === 'Space') {
-        e.preventDefault();
-        handleCaptureCurrentSelection();
-      } else if (['1', '2', '3', '4', '5', '6', '7'].includes(e.key)) {
-        e.preventDefault();
-        const angleKey = `angle_${e.key}`;
-        setCurrentAngleId(angleKey);
-        handleSaveToTarget(currentFingerKey, angleKey);
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        handleNudge(-10, 0, -3);
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        handleNudge(10, 0, 3);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        handleNudge(0, -10, 0);
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        handleNudge(0, 10, 0);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentFingerKey, currentAngleId, handleCaptureCurrentSelection, handleSaveToTarget]);
+  // Calculate total captured photos across all fingers
+  const totalCaptured = Object.values(capturedMatrix).reduce((acc: number, curr) => acc + (curr ? Object.keys(curr).length : 0), 0);
 
   if (!isOpen) return null;
 
-  const currentFingerDef = FINGERS_ORDER.find(f => f.key === currentFingerKey) || FINGERS_ORDER[0];
-  const currentAngleDef = POSITIONS_1_TO_7.find(p => p.id === currentAngleId) || POSITIONS_1_TO_7[0];
-
-  // Count total captured photos across all 10 fingers
-  let totalCaptured = 0;
-  Object.values(capturedMatrix).forEach(angles => {
-    totalCaptured += Object.keys(angles).length;
-  });
-
-  // Calculate live alignment feedback indicators
-  const isCoreCentered = Math.abs(fingerOffset.x) < 15 && Math.abs(fingerOffset.y) < 15;
-  const isLeftDeltaActive = fingerOffset.x < -20;
-  const isRightDeltaActive = fingerOffset.x > 20;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/95 backdrop-blur-md">
-      <div className="bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 w-full max-w-7xl h-[94vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200">
+      <div className="bg-slate-900 border border-slate-700 w-full max-w-7xl h-[94vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100">
         
         {/* Top Header Bar */}
-        <div className="bg-slate-800/95 border-b border-slate-700 px-5 py-3 flex items-center justify-between shrink-0">
+        <div className="bg-slate-950 px-5 py-3 border-b border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-500/50 flex items-center justify-center text-emerald-400 shadow-inner">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
               <Cpu className="w-5 h-5 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
-                  ระบบขยับนิ้วมือและบันทึกภาพสด (Live Motion & Angle Capture)
+                <h2 className="text-base font-bold text-white tracking-wide">
+                  สถานีสแกนลายนิ้วมือ Futronic FS80H
                 </h2>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 font-mono">
-                  500 DPI • Continuous Live Preview
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-700/60">
+                  Continuous Frame Feed
                 </span>
               </div>
-              <p className="text-xs text-slate-300 flex items-center space-x-2 mt-0.5">
-                <span>กำลังบันทึก: <strong className="text-emerald-400">{currentFingerDef.fingerNameTh} ({currentFingerDef.key})</strong></span>
-                <span>•</span>
-                <span className="text-amber-300 font-medium">{currentAngleDef.label}</span>
-                <span>•</span>
-                <span className="text-slate-400">บันทึกแล้ว: <strong className="text-emerald-400">{totalCaptured}</strong> / 70 ภาพ</span>
+              <p className="text-xs text-slate-400 flex items-center space-x-2">
+                <span>พลิกนิ้วบนกระจกสแกนเพื่อจับ <strong>Core</strong> และ <strong>Delta</strong> (แต่ละนิ้วปรับจำนวนรูปได้อิสระ)</span>
               </p>
             </div>
           </div>
 
+          {/* Top Right Controls & Firebase Status */}
           <div className="flex items-center space-x-2">
+            
+            {/* Firebase Sync Indicator */}
+            <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 bg-slate-800 rounded-lg border border-slate-700 text-xs">
+              <span className={`w-2 h-2 rounded-full ${firebaseStatus === 'synced' ? 'bg-emerald-400' : firebaseStatus === 'unsaved' ? 'bg-amber-400 animate-pulse' : 'bg-rose-400'}`} />
+              <span className="text-slate-300 font-mono text-[11px]">
+                {firebaseStatus === 'synced' ? 'Firebase Synced' : firebaseStatus === 'unsaved' ? 'Unsaved (กดบันทึก)' : 'Sync Error'}
+              </span>
+            </div>
+
+            {/* Save to Firebase Button */}
+            <button
+              type="button"
+              onClick={handleSaveToFirebase}
+              disabled={firebaseSyncing}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow-xs cursor-pointer disabled:opacity-50"
+              title="บันทึกภาพลายนิ้วมือทั้งหมดขึ้น Firebase Firestore"
+            >
+              <Cloud className={`w-3.5 h-3.5 ${firebaseSyncing ? 'animate-bounce' : ''}`} />
+              <span>{firebaseSyncing ? 'กำลังบันทึก...' : 'บันทึกลง Firebase'}</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setSoundEnabled(!soundEnabled)}
@@ -702,6 +627,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
             >
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
+
             <button
               type="button"
               onClick={checkDriverStatus}
@@ -710,6 +636,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
             >
               <RefreshCw className="w-4 h-4" />
             </button>
+
             <button
               type="button"
               onClick={() => setShowSettings(!showSettings)}
@@ -718,6 +645,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
             >
               <Sliders className="w-4 h-4" />
             </button>
+
             <button
               type="button"
               onClick={onClose}
@@ -780,7 +708,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>โหมดจำลอง (Interactive Demo)</span>
+              <span>Continuous Live Stream Demo</span>
             </button>
           </div>
 
@@ -832,58 +760,31 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
           </div>
         )}
 
-        {/* Modal Main Split: Left Side (Live Scanner Viewfinder) | Right Side (10 Fingers & 7 Positions) */}
+        {/* Modal Main Split: Left Side (Continuous Frame Viewfinder) | Right Side (10 Fingers & Dynamic Shots) */}
         <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden bg-slate-950">
           
           {/* ========================================================= */}
-          {/* LEFT SIDE: แสดงรูปลายนิ้วมือที่ทาบบนเครื่องสแกน (5 Cols)   */}
+          {/* LEFT SIDE: แสดงรูปลายนิ้วมือ Continuous Frame Loop (5 Cols) */}
           {/* ========================================================= */}
-          <div className="lg:col-span-5 border-r border-slate-800 flex flex-col p-4 sm:p-5 overflow-y-auto bg-slate-900/60">
+          <div className="lg:col-span-5 border-r border-slate-800 flex flex-col p-4 sm:p-5 overflow-y-auto bg-slate-900/60 justify-between">
             
-            {/* Live Angle Guidance HUD Card */}
-            <div className="bg-blue-950/40 border border-blue-500/40 rounded-xl p-3 mb-3">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center space-x-1.5 text-blue-300 font-bold text-xs">
-                  <Compass className="w-4 h-4 text-amber-300 animate-spin" style={{ animationDuration: '6s' }} />
-                  <span>คำแนะนำการขยับนิ้วหามุม: {currentAngleDef.label}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleSnapToAnglePreset(currentAngleId)}
-                  className="text-[10px] px-2 py-0.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded transition-colors"
-                  title="ปรับมุมไปยังตำแหน่งแนะนำอัตโนมัติ"
-                >
-                  จัดมุมอัตโนมัติ
-                </button>
+            {/* Status Feedback Line */}
+            <div className="flex items-center justify-between text-xs px-1 text-slate-300">
+              <div className="flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="font-medium text-emerald-300">{statusMessage}</span>
               </div>
-              <p className="text-xs text-slate-200 font-medium">
-                👉 {currentAngleDef.instruction}
-              </p>
-              <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 pt-1.5 border-t border-blue-900/60">
-                <span>พิกัดเลื่อน: X:{Math.round(fingerOffset.x)} Y:{Math.round(fingerOffset.y)} เอียง:{Math.round(fingerOffset.rot)}°</span>
-                <span className={`font-bold font-mono ${qualityScore > 85 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  ความคมชัด: {qualityScore}%
-                </span>
-              </div>
+              <span className="font-mono text-[11px] text-slate-400">500 DPI Grayscale</span>
             </div>
 
-            {/* Interactive Optical Glass Scanner Viewport */}
-            <div className="flex-1 flex flex-col items-center justify-center py-1">
+            {/* Continuous Frame Loop Scanner Viewport */}
+            <div className="flex-1 flex flex-col items-center justify-center py-3">
               <div 
-                ref={sensorContainerRef}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
-                className={`relative w-64 h-80 sm:w-72 sm:h-92 rounded-2xl p-2 transition-all duration-150 flex flex-col items-center justify-center select-none overflow-hidden cursor-grab active:cursor-grabbing touch-none ${
+                className={`relative w-64 h-84 sm:w-72 sm:h-96 rounded-2xl p-2 transition-all duration-150 flex flex-col items-center justify-center select-none overflow-hidden ${
                   scannerStatus === 'success'
                     ? 'border-2 border-emerald-400 shadow-[0_0_35px_rgba(52,211,153,0.35)]'
                     : 'border-2 border-blue-500/70 shadow-[0_0_25px_rgba(59,130,246,0.25)]'
                 } bg-black`}
-                title="คลิกและลากเมาส์ หรือกดลูกศร เพื่อขยับนิ้วบนกระจกสแกนเนอร์"
               >
                 
                 {/* 1. Live Camera Stream */}
@@ -897,21 +798,21 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                       className="w-full h-full object-cover"
                       style={{
                         filter: `brightness(${brightness}%) contrast(${contrast}%) ${invertImage ? 'invert(1)' : ''}`,
-                        transform: `scale(${zoomLevel}) translate(${fingerOffset.x * 0.5}px, ${fingerOffset.y * 0.5}px) rotate(${fingerOffset.rot}deg)`
+                        transform: `scale(${zoomLevel})`
                       }}
                     />
                   </div>
                 )}
 
-                {/* 2. Static / Hardware Captured / Real-Time Dynamic Continuous Frame */}
+                {/* 2. Pure Continuous Frame Loop Image */}
                 {inputMode !== 'camera' && currentFrame && (
                   <img
                     src={currentFrame}
-                    alt="Fingerprint Sensor Feed"
+                    alt="Fingerprint Continuous Frame Feed"
                     className="w-full h-full object-cover rounded-xl transition-transform duration-75 pointer-events-none"
                     style={{
                       filter: `brightness(${brightness}%) contrast(${contrast}%) ${invertImage ? 'invert(1)' : ''}`,
-                      transform: `scale(${zoomLevel}) translate(${fingerOffset.x * 0.4}px, ${fingerOffset.y * 0.4}px) rotate(${fingerOffset.rot}deg)`
+                      transform: `scale(${zoomLevel})`
                     }}
                   />
                 )}
@@ -923,63 +824,50 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                       <Cpu className="w-7 h-7 animate-pulse" />
                     </div>
                     <p className="text-xs font-bold text-slate-200">วางกึ่งกลางนิ้วลงบนกระจกสแกน</p>
-                    <p className="text-[11px] text-slate-400">ภาพจะแสดงผลและขยับตามการเคลื่อนไหวทันที</p>
+                    <p className="text-[11px] text-slate-400">ภาพ Continuous Frame Loop จะแสดงผลทันที</p>
                   </div>
                 )}
 
-                {/* Overlay: Center Reticle / Core Aim with Live Centering Glow */}
+                {/* Overlay: Center Reticle / Core Aim Guide */}
                 {showGrid && (
                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <div className={`w-24 h-24 border rounded-full border-dashed transition-colors duration-200 ${
-                      isCoreCentered ? 'border-emerald-400/80 shadow-[0_0_15px_rgba(52,211,153,0.5)]' : 'border-blue-400/30'
-                    }`} />
+                    <div className="w-28 h-28 border rounded-full border-dashed border-emerald-400/40" />
                     <div className="absolute w-full h-[1px] bg-emerald-500/20" />
                     <div className="absolute h-full w-[1px] bg-emerald-500/20" />
-                    <div className={`w-3.5 h-3.5 border-2 rounded-full transition-all duration-200 ${
-                      isCoreCentered ? 'border-emerald-400 bg-emerald-400/40 scale-125' : 'border-blue-400 bg-blue-500/20'
-                    }`} />
+                    <div className="w-3 h-3 border-2 rounded-full border-emerald-400 bg-emerald-400/30" />
+                    <span className="absolute top-[38%] text-[9px] font-mono text-emerald-300/80 bg-black/50 px-1 rounded">
+                      CORE CENTER
+                    </span>
                   </div>
                 )}
 
-                {/* Overlay: Delta Target Boxes with Active Highlighting */}
+                {/* Overlay: Delta Target Boxes */}
                 {showDeltas && (
                   <div className="absolute inset-0 pointer-events-none">
-                    <div className={`absolute left-3 bottom-14 w-14 h-14 border rounded-lg flex items-center justify-center text-[9px] font-mono transition-all duration-200 ${
-                      isLeftDeltaActive 
-                        ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 font-bold shadow-[0_0_10px_rgba(52,211,153,0.4)]' 
-                        : 'border-amber-400/40 bg-amber-950/20 text-amber-300/70'
-                    }`}>
-                      Delta L {isLeftDeltaActive && '✓'}
+                    <div className="absolute left-3 bottom-12 w-14 h-14 border rounded-lg border-amber-400/50 bg-amber-950/30 text-amber-300 flex flex-col items-center justify-center text-[9px] font-mono">
+                      <span>DELTA L</span>
+                      <span className="text-[7px] text-amber-400/80">พลิกซ้าย</span>
                     </div>
-                    <div className={`absolute right-3 bottom-14 w-14 h-14 border rounded-lg flex items-center justify-center text-[9px] font-mono transition-all duration-200 ${
-                      isRightDeltaActive 
-                        ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 font-bold shadow-[0_0_10px_rgba(52,211,153,0.4)]' 
-                        : 'border-amber-400/40 bg-amber-950/20 text-amber-300/70'
-                    }`}>
-                      Delta R {isRightDeltaActive && '✓'}
+                    <div className="absolute right-3 bottom-12 w-14 h-14 border rounded-lg border-amber-400/50 bg-amber-950/30 text-amber-300 flex flex-col items-center justify-center text-[9px] font-mono">
+                      <span>DELTA R</span>
+                      <span className="text-[7px] text-amber-400/80">พลิกขวา</span>
                     </div>
                   </div>
                 )}
-
-                {/* Live Motion Guide Arrow */}
-                <div className="absolute top-2.5 right-2.5 flex items-center space-x-1 bg-slate-900/90 backdrop-blur-md px-2 py-0.5 rounded text-[10px] text-amber-300 border border-slate-700 font-mono">
-                  <Move className="w-3 h-3 text-amber-400" />
-                  <span>ลากขยับนิ้วได้</span>
-                </div>
 
                 {/* Source Badge */}
                 <div className="absolute top-2.5 left-2.5 flex items-center space-x-1.5 bg-slate-900/85 backdrop-blur-md px-2 py-0.5 rounded border border-slate-700 text-[10px] font-mono">
-                  <span className={`w-2 h-2 rounded-full ${frameSource === 'real_hardware' || frameSource === 'real_camera' || frameSource === 'real_upload' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span className="text-slate-200">
-                    {frameSource === 'real_hardware' ? '🟢 FS80H OPTICAL' :
-                     frameSource === 'real_camera' ? '📷 WEBCAM' :
+                    {frameSource === 'real_hardware' ? '🟢 FS80H OPTICAL 500 DPI' :
+                     frameSource === 'real_camera' ? '📷 WEBCAM LIVE FEED' :
                      frameSource === 'real_upload' ? '📁 FILE IMAGE' :
-                     '🧪 SIMULATION'}
+                     '⚡ CONTINUOUS LOOP FEED'}
                   </span>
                 </div>
 
                 {/* Target Finger & Position Bar */}
-                <div className="absolute bottom-2.5 inset-x-2.5 bg-slate-900/90 backdrop-blur-md px-2.5 py-1 rounded border border-slate-700 text-[11px] text-slate-200 flex items-center justify-between">
+                <div className="absolute bottom-2.5 inset-x-2.5 bg-slate-900/90 backdrop-blur-md px-2.5 py-1.5 rounded border border-slate-700 text-xs text-slate-200 flex items-center justify-between">
                   <span className="font-bold text-emerald-400">{currentFingerDef.shortName}</span>
                   <span className="text-amber-300 font-medium">{currentAngleDef.label}</span>
                 </div>
@@ -987,50 +875,12 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               </div>
             </div>
 
-            {/* Quick Motion Nudge Controllers (ปุ่มขยับนิ้วแบบละเอียด) */}
-            <div className="flex items-center justify-center space-x-2 py-1">
-              <span className="text-[11px] text-slate-400">ขยับละเอียด:</span>
-              <div className="flex items-center space-x-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => handleNudge(-10, 0, -3)}
-                  className="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white"
-                  title="เอียงซ้าย (←)"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNudge(0, -10, 0)}
-                  className="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white"
-                  title="เลื่อนขึ้นบน (↑)"
-                >
-                  <ArrowUp className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNudge(0, 10, 0)}
-                  className="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white"
-                  title="เลื่อนลงล่าง (↓)"
-                >
-                  <ArrowDown className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleNudge(10, 0, 3)}
-                  className="p-1 hover:bg-slate-700 rounded text-slate-300 hover:text-white"
-                  title="เอียงขวา (→)"
-                >
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetCenter}
-                  className="px-1.5 py-0.5 text-[10px] bg-slate-700 hover:bg-slate-600 rounded text-blue-300 font-semibold"
-                  title="คืนค่าตรงกลาง"
-                >
-                  Center
-                </button>
+            {/* Rolling Guide Tip */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 mb-2 text-xs text-slate-300 flex items-start space-x-2">
+              <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-slate-200">วิธีพลิกนิ้ว (Finger Rolling Technique):</p>
+                <p className="text-[11px] text-slate-400">{currentAngleDef.guide}</p>
               </div>
             </div>
 
@@ -1039,8 +889,8 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               <button
                 type="button"
                 onClick={() => setInvertImage(!invertImage)}
-                className={`px-2 py-1 rounded border flex items-center space-x-1 ${
-                  invertImage ? 'bg-indigo-600/40 border-indigo-500 text-indigo-200' : 'bg-slate-800 border-slate-700 text-slate-300'
+                className={`px-2.5 py-1 rounded-lg border flex items-center space-x-1 transition-all ${
+                  invertImage ? 'bg-indigo-600 border-indigo-400 text-white font-bold' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
                 }`}
               >
                 <Contrast className="w-3.5 h-3.5" />
@@ -1050,8 +900,8 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowGrid(!showGrid)}
-                className={`px-2 py-1 rounded border flex items-center space-x-1 ${
-                  showGrid ? 'bg-blue-600/30 border-blue-500 text-blue-200' : 'bg-slate-800 border-slate-700 text-slate-400'
+                className={`px-2.5 py-1 rounded-lg border flex items-center space-x-1 transition-all ${
+                  showGrid ? 'bg-blue-600/40 border-blue-400 text-blue-200 font-medium' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
                 }`}
               >
                 <Crosshair className="w-3.5 h-3.5" />
@@ -1061,18 +911,18 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowDeltas(!showDeltas)}
-                className={`px-2 py-1 rounded border flex items-center space-x-1 ${
-                  showDeltas ? 'bg-amber-600/30 border-amber-500 text-amber-200' : 'bg-slate-800 border-slate-700 text-slate-400'
+                className={`px-2.5 py-1 rounded-lg border flex items-center space-x-1 transition-all ${
+                  showDeltas ? 'bg-amber-600/40 border-amber-400 text-amber-200 font-medium' : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
                 }`}
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>Delta</span>
+                <span>Delta Guide</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setZoomLevel(prev => prev === 1 ? 1.3 : prev === 1.3 ? 1.6 : 1)}
-                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 flex items-center space-x-1"
+                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 flex items-center space-x-1"
               >
                 <Maximize2 className="w-3.5 h-3.5" />
                 <span>ซูม {zoomLevel}x</span>
@@ -1111,8 +961,8 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               {/* Primary Capture Button into Active Selection (Spacebar) */}
               <button
                 type="button"
-                onClick={handleCaptureCurrentSelection}
-                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg shadow-emerald-950/60 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98 border border-emerald-400/50"
+                onClick={() => handleSaveToTarget(currentFingerKey, currentAngleId)}
+                className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-950/60 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98 border border-emerald-400/50"
               >
                 <Check className="w-4 h-4 text-amber-300" />
                 <span>
@@ -1124,20 +974,20 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
           </div>
 
 
-          {/* ========================================================================= */}
-          {/* RIGHT SIDE: แผงควบคุมบันทึก 10 นิ้ว (มือซ้าย-มือขวา) ตำแหน่ง 1-7 (7 Cols)  */}
-          {/* ========================================================================= */}
+          {/* =================================================================================== */}
+          {/* RIGHT SIDE: แผงควบคุม 10 นิ้ว (มือซ้าย-มือขวา) ปรับจำนวนรูปภาพได้อิสระในแต่ละนิ้ว */}
+          {/* =================================================================================== */}
           <div className="lg:col-span-7 flex flex-col p-4 sm:p-5 overflow-y-auto bg-slate-950">
             
             {/* Header of Control Panel */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
+            <div className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-800 shrink-0 gap-2">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center space-x-2">
                   <Hand className="w-4 h-4 text-emerald-400" />
-                  <span>แผงควบคุมบันทึกลายนิ้วมือ (10 นิ้วมือ • ตำแหน่ง 1-7)</span>
+                  <span>แผงควบคุมบันทึกลายนิ้วมือ (10 นิ้วมือ • ปรับจำนวนภาพอิสระ)</span>
                 </h3>
                 <p className="text-xs text-slate-400">
-                  คลิกที่ช่องหมายเลข 1-7 ในแต่ละนิ้วเพื่อเลือกมุม หรือดับเบิ้ลคลิกเพื่อบันทึกทันที
+                  พลิกนิ้วเก็บ Core และ Delta ซ้าย-ขวา • แต่ละนิ้วเก็บจำนวนภาพไม่เท่ากันได้ (กด + เพื่อเพิ่มรูป)
                 </p>
               </div>
 
@@ -1167,16 +1017,19 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   </h4>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {FINGERS_ORDER.filter(f => f.hand === 'left').map(finger => {
                     const isCurrentFinger = currentFingerKey === finger.key;
                     const fingerCaptures = capturedMatrix[finger.key] || {};
                     const capturedCount = Object.keys(fingerCaptures).length;
 
+                    // Collect standard positions plus any custom added shots
+                    const customShotKeys = Object.keys(fingerCaptures).filter(k => !DEFAULT_STANDARD_POSITIONS.some(p => p.id === k));
+
                     return (
                       <div 
                         key={finger.key}
-                        className={`p-2 rounded-xl border transition-all ${
+                        className={`p-2.5 rounded-xl border transition-all ${
                           isCurrentFinger 
                             ? 'bg-blue-950/40 border-blue-500/70 shadow-xs' 
                             : 'bg-slate-900/60 border-slate-800 hover:bg-slate-900'
@@ -1189,7 +1042,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                             onClick={() => setCurrentFingerKey(finger.key)}
                             className="flex items-center space-x-2 cursor-pointer shrink-0 sm:w-36"
                           >
-                            <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold font-mono ${
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold font-mono ${
                               isCurrentFinger ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-300'
                             }`}>
                               {finger.key}
@@ -1198,68 +1051,137 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                               <p className={`text-xs font-bold truncate ${isCurrentFinger ? 'text-blue-300' : 'text-slate-200'}`}>
                                 {finger.fingerNameTh}
                               </p>
-                              <p className="text-[10px] text-slate-400">
-                                {capturedCount}/7 มุม
+                              <p className="text-[10px] text-slate-400 font-mono">
+                                บันทึกแล้ว <span className="text-emerald-400 font-bold">{capturedCount}</span> ภาพ
                               </p>
                             </div>
                           </div>
 
-                          {/* Positions 1 to 7 arranged left to right */}
-                          <div className="grid grid-cols-7 gap-1.5 flex-1 max-w-xl">
-                            {POSITIONS_1_TO_7.map(pos => {
+                          {/* Dynamic Shots Strip */}
+                          <div className="flex flex-wrap items-center gap-1.5 flex-1 max-w-xl">
+                            
+                            {/* Standard Core, Delta L, Delta R, Top, Base Positions */}
+                            {DEFAULT_STANDARD_POSITIONS.map(pos => {
                               const isSelectedSlot = isCurrentFinger && currentAngleId === pos.id;
-                              const capturedImg = fingerCaptures[pos.id];
+                              const capturedItem = fingerCaptures[pos.id];
 
                               return (
-                                <button
-                                  key={pos.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setCurrentFingerKey(finger.key);
-                                    setCurrentAngleId(pos.id);
-                                    handleSnapToAnglePreset(pos.id);
-                                  }}
-                                  onDoubleClick={() => {
-                                    setCurrentFingerKey(finger.key);
-                                    setCurrentAngleId(pos.id);
-                                    handleSaveToTarget(finger.key, pos.id);
-                                  }}
-                                  className={`relative h-11 rounded-lg border flex flex-col items-center justify-center p-0.5 transition-all text-center group cursor-pointer ${
-                                    isSelectedSlot
-                                      ? 'bg-emerald-600/30 border-emerald-400 ring-2 ring-emerald-400/50 shadow-sm'
-                                      : capturedImg
-                                      ? 'bg-emerald-950/40 border-emerald-700/60 hover:border-emerald-500'
-                                      : 'bg-slate-950 border-slate-800 hover:border-slate-600 hover:bg-slate-800/60'
-                                  }`}
-                                  title={`${finger.fingerNameTh} - ตำแหน่งที่ ${pos.num}: ${pos.desc} (ดับเบิ้ลคลิกเพื่อบันทึกทันที)`}
-                                >
-                                  {capturedImg ? (
-                                    <div className="relative w-full h-full rounded overflow-hidden">
-                                      <img 
-                                        src={capturedImg} 
-                                        alt={`${finger.key}-${pos.num}`} 
-                                        className="w-full h-full object-cover" 
-                                      />
-                                      <div className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-600 rounded-full flex items-center justify-center text-[8px] text-white font-bold">
-                                        ✓
+                                <div key={pos.id} className="relative group">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCurrentFingerKey(finger.key);
+                                      setCurrentAngleId(pos.id);
+                                    }}
+                                    onDoubleClick={() => {
+                                      setCurrentFingerKey(finger.key);
+                                      setCurrentAngleId(pos.id);
+                                      handleSaveToTarget(finger.key, pos.id);
+                                    }}
+                                    className={`relative w-14 h-13 rounded-lg border flex flex-col items-center justify-center p-0.5 transition-all text-center cursor-pointer ${
+                                      isSelectedSlot
+                                        ? 'bg-emerald-600/30 border-emerald-400 ring-2 ring-emerald-400/50 shadow-sm'
+                                        : capturedItem
+                                        ? 'bg-emerald-950/40 border-emerald-700/60 hover:border-emerald-500'
+                                        : 'bg-slate-950 border-slate-800 hover:border-slate-600 hover:bg-slate-800/60'
+                                    }`}
+                                    title={`${finger.fingerNameTh} - ${pos.label}: ${pos.guide}`}
+                                  >
+                                    {capturedItem ? (
+                                      <div className="relative w-full h-full rounded overflow-hidden">
+                                        <img 
+                                          src={capturedItem.image} 
+                                          alt={`${finger.key}-${pos.id}`} 
+                                          className="w-full h-full object-cover" 
+                                        />
+                                        <div className="absolute top-0.5 right-0.5 w-3 h-3 bg-emerald-600 rounded-full flex items-center justify-center text-[7px] text-white font-bold">
+                                          ✓
+                                        </div>
+                                        <span className="absolute bottom-0.5 left-0.5 text-[7px] text-white font-mono bg-black/70 px-1 rounded truncate max-w-[48px]">
+                                          {pos.shortLabel}
+                                        </span>
                                       </div>
-                                      <span className="absolute bottom-0.5 left-1 text-[8px] text-white font-mono bg-black/60 px-1 rounded">
-                                        {pos.num}
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col items-center">
-                                      <span className={`text-xs font-bold ${isSelectedSlot ? 'text-emerald-300' : 'text-slate-400 group-hover:text-slate-200'}`}>
-                                        {pos.num}
-                                      </span>
-                                      <span className="text-[8px] text-slate-400 truncate max-w-[40px] leading-tight">
-                                        {pos.num === 1 ? 'Core' : pos.num === 2 ? 'ซ้าย' : pos.num === 3 ? 'ขวา' : pos.num === 4 ? 'บน' : pos.num === 5 ? 'ล่าง' : pos.num === 6 ? 'ซ้ายบน' : 'ขวาบน'}
-                                      </span>
-                                    </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center justify-center">
+                                        <span className={`text-[11px] font-bold ${isSelectedSlot ? 'text-emerald-300' : 'text-slate-300'}`}>
+                                          {pos.shortLabel}
+                                        </span>
+                                        <span className="text-[8px] text-slate-500">
+                                          {pos.type === 'core' ? 'ศูนย์กลาง' : pos.type === 'delta_left' ? 'ซ้าย' : pos.type === 'delta_right' ? 'ขวา' : 'สัน'}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </button>
+
+                                  {/* Delete shot icon on hover */}
+                                  {capturedItem && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleDeleteShot(finger.key, pos.id, e)}
+                                      className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-rose-600 hover:bg-rose-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-xs"
+                                      title="ลบรูปภาพนี้"
+                                    >
+                                      <X className="w-2.5 h-2.5" />
+                                    </button>
                                   )}
-                                </button>
+                                </div>
                               );
                             })}
+
+                            {/* Extra Custom Shots if any */}
+                            {customShotKeys.map(k => {
+                              const isSelectedSlot = isCurrentFinger && currentAngleId === k;
+                              const capturedItem = fingerCaptures[k];
+
+                              return (
+                                <div key={k} className="relative group">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCurrentFingerKey(finger.key);
+                                      setCurrentAngleId(k);
+                                    }}
+                                    className={`relative w-14 h-13 rounded-lg border flex flex-col items-center justify-center p-0.5 transition-all text-center cursor-pointer ${
+                                      isSelectedSlot
+                                        ? 'bg-amber-600/30 border-amber-400 ring-2 ring-amber-400/50 shadow-sm'
+                                        : 'bg-emerald-950/40 border-emerald-700/60'
+                                    }`}
+                                    title={`${finger.fingerNameTh} - ภาพเพิ่มเติม (${k})`}
+                                  >
+                                    <div className="relative w-full h-full rounded overflow-hidden">
+                                      <img 
+                                        src={capturedItem.image} 
+                                        alt={`${finger.key}-${k}`} 
+                                        className="w-full h-full object-cover" 
+                                      />
+                                      <span className="absolute bottom-0.5 left-0.5 text-[7px] text-amber-300 font-mono bg-black/70 px-1 rounded truncate max-w-[48px]">
+                                        +ภาพ
+                                      </span>
+                                    </div>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteShot(finger.key, k, e)}
+                                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-rose-600 hover:bg-rose-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-xs"
+                                    title="ลบรูปภาพนี้"
+                                  >
+                                    <X className="w-2.5 h-2.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+
+                            {/* Add Extra Shot Button (+) */}
+                            <button
+                              type="button"
+                              onClick={() => handleAddCustomShot(finger.key)}
+                              className="w-8 h-13 rounded-lg border border-dashed border-slate-700 hover:border-blue-400 hover:bg-blue-950/30 text-slate-400 hover:text-blue-300 flex flex-col items-center justify-center transition-all text-xs"
+                              title="เพิ่มรูปมุมเพิ่มเติมสำหรับนิ้วนี้"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+
                           </div>
 
                         </div>
@@ -1280,16 +1202,17 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   </h4>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   {FINGERS_ORDER.filter(f => f.hand === 'right').map(finger => {
                     const isCurrentFinger = currentFingerKey === finger.key;
                     const fingerCaptures = capturedMatrix[finger.key] || {};
                     const capturedCount = Object.keys(fingerCaptures).length;
+                    const customShotKeys = Object.keys(fingerCaptures).filter(k => !DEFAULT_STANDARD_POSITIONS.some(p => p.id === k));
 
                     return (
                       <div 
                         key={finger.key}
-                        className={`p-2 rounded-xl border transition-all ${
+                        className={`p-2.5 rounded-xl border transition-all ${
                           isCurrentFinger 
                             ? 'bg-emerald-950/40 border-emerald-500/70 shadow-xs' 
                             : 'bg-slate-900/60 border-slate-800 hover:bg-slate-900'
@@ -1302,7 +1225,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                             onClick={() => setCurrentFingerKey(finger.key)}
                             className="flex items-center space-x-2 cursor-pointer shrink-0 sm:w-36"
                           >
-                            <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold font-mono ${
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold font-mono ${
                               isCurrentFinger ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300'
                             }`}>
                               {finger.key}
@@ -1311,68 +1234,136 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                               <p className={`text-xs font-bold truncate ${isCurrentFinger ? 'text-emerald-300' : 'text-slate-200'}`}>
                                 {finger.fingerNameTh}
                               </p>
-                              <p className="text-[10px] text-slate-400">
-                                {capturedCount}/7 มุม
+                              <p className="text-[10px] text-slate-400 font-mono">
+                                บันทึกแล้ว <span className="text-emerald-400 font-bold">{capturedCount}</span> ภาพ
                               </p>
                             </div>
                           </div>
 
-                          {/* Positions 1 to 7 arranged left to right */}
-                          <div className="grid grid-cols-7 gap-1.5 flex-1 max-w-xl">
-                            {POSITIONS_1_TO_7.map(pos => {
+                          {/* Dynamic Shots Strip */}
+                          <div className="flex flex-wrap items-center gap-1.5 flex-1 max-w-xl">
+                            
+                            {/* Standard Core, Delta L, Delta R, Top, Base Positions */}
+                            {DEFAULT_STANDARD_POSITIONS.map(pos => {
                               const isSelectedSlot = isCurrentFinger && currentAngleId === pos.id;
-                              const capturedImg = fingerCaptures[pos.id];
+                              const capturedItem = fingerCaptures[pos.id];
 
                               return (
-                                <button
-                                  key={pos.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setCurrentFingerKey(finger.key);
-                                    setCurrentAngleId(pos.id);
-                                    handleSnapToAnglePreset(pos.id);
-                                  }}
-                                  onDoubleClick={() => {
-                                    setCurrentFingerKey(finger.key);
-                                    setCurrentAngleId(pos.id);
-                                    handleSaveToTarget(finger.key, pos.id);
-                                  }}
-                                  className={`relative h-11 rounded-lg border flex flex-col items-center justify-center p-0.5 transition-all text-center group cursor-pointer ${
-                                    isSelectedSlot
-                                      ? 'bg-emerald-600/30 border-emerald-400 ring-2 ring-emerald-400/50 shadow-sm'
-                                      : capturedImg
-                                      ? 'bg-emerald-950/40 border-emerald-700/60 hover:border-emerald-500'
-                                      : 'bg-slate-950 border-slate-800 hover:border-slate-600 hover:bg-slate-800/60'
-                                  }`}
-                                  title={`${finger.fingerNameTh} - ตำแหน่งที่ ${pos.num}: ${pos.desc} (ดับเบิ้ลคลิกเพื่อบันทึกทันที)`}
-                                >
-                                  {capturedImg ? (
-                                    <div className="relative w-full h-full rounded overflow-hidden">
-                                      <img 
-                                        src={capturedImg} 
-                                        alt={`${finger.key}-${pos.num}`} 
-                                        className="w-full h-full object-cover" 
-                                      />
-                                      <div className="absolute top-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-600 rounded-full flex items-center justify-center text-[8px] text-white font-bold">
-                                        ✓
+                                <div key={pos.id} className="relative group">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCurrentFingerKey(finger.key);
+                                      setCurrentAngleId(pos.id);
+                                    }}
+                                    onDoubleClick={() => {
+                                      setCurrentFingerKey(finger.key);
+                                      setCurrentAngleId(pos.id);
+                                      handleSaveToTarget(finger.key, pos.id);
+                                    }}
+                                    className={`relative w-14 h-13 rounded-lg border flex flex-col items-center justify-center p-0.5 transition-all text-center cursor-pointer ${
+                                      isSelectedSlot
+                                        ? 'bg-emerald-600/30 border-emerald-400 ring-2 ring-emerald-400/50 shadow-sm'
+                                        : capturedItem
+                                        ? 'bg-emerald-950/40 border-emerald-700/60 hover:border-emerald-500'
+                                        : 'bg-slate-950 border-slate-800 hover:border-slate-600 hover:bg-slate-800/60'
+                                    }`}
+                                    title={`${finger.fingerNameTh} - ${pos.label}: ${pos.guide}`}
+                                  >
+                                    {capturedItem ? (
+                                      <div className="relative w-full h-full rounded overflow-hidden">
+                                        <img 
+                                          src={capturedItem.image} 
+                                          alt={`${finger.key}-${pos.id}`} 
+                                          className="w-full h-full object-cover" 
+                                        />
+                                        <div className="absolute top-0.5 right-0.5 w-3 h-3 bg-emerald-600 rounded-full flex items-center justify-center text-[7px] text-white font-bold">
+                                          ✓
+                                        </div>
+                                        <span className="absolute bottom-0.5 left-0.5 text-[7px] text-white font-mono bg-black/70 px-1 rounded truncate max-w-[48px]">
+                                          {pos.shortLabel}
+                                        </span>
                                       </div>
-                                      <span className="absolute bottom-0.5 left-1 text-[8px] text-white font-mono bg-black/60 px-1 rounded">
-                                        {pos.num}
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <div className="flex flex-col items-center">
-                                      <span className={`text-xs font-bold ${isSelectedSlot ? 'text-emerald-300' : 'text-slate-400 group-hover:text-slate-200'}`}>
-                                        {pos.num}
-                                      </span>
-                                      <span className="text-[8px] text-slate-400 truncate max-w-[40px] leading-tight">
-                                        {pos.num === 1 ? 'Core' : pos.num === 2 ? 'ซ้าย' : pos.num === 3 ? 'ขวา' : pos.num === 4 ? 'บน' : pos.num === 5 ? 'ล่าง' : pos.num === 6 ? 'ซ้ายบน' : 'ขวาบน'}
-                                      </span>
-                                    </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center justify-center">
+                                        <span className={`text-[11px] font-bold ${isSelectedSlot ? 'text-emerald-300' : 'text-slate-300'}`}>
+                                          {pos.shortLabel}
+                                        </span>
+                                        <span className="text-[8px] text-slate-500">
+                                          {pos.type === 'core' ? 'ศูนย์กลาง' : pos.type === 'delta_left' ? 'ซ้าย' : pos.type === 'delta_right' ? 'ขวา' : 'สัน'}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </button>
+
+                                  {capturedItem && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleDeleteShot(finger.key, pos.id, e)}
+                                      className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-rose-600 hover:bg-rose-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-xs"
+                                      title="ลบรูปภาพนี้"
+                                    >
+                                      <X className="w-2.5 h-2.5" />
+                                    </button>
                                   )}
-                                </button>
+                                </div>
                               );
                             })}
+
+                            {/* Extra Custom Shots if any */}
+                            {customShotKeys.map(k => {
+                              const isSelectedSlot = isCurrentFinger && currentAngleId === k;
+                              const capturedItem = fingerCaptures[k];
+
+                              return (
+                                <div key={k} className="relative group">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCurrentFingerKey(finger.key);
+                                      setCurrentAngleId(k);
+                                    }}
+                                    className={`relative w-14 h-13 rounded-lg border flex flex-col items-center justify-center p-0.5 transition-all text-center cursor-pointer ${
+                                      isSelectedSlot
+                                        ? 'bg-amber-600/30 border-amber-400 ring-2 ring-amber-400/50 shadow-sm'
+                                        : 'bg-emerald-950/40 border-emerald-700/60'
+                                    }`}
+                                    title={`${finger.fingerNameTh} - ภาพเพิ่มเติม (${k})`}
+                                  >
+                                    <div className="relative w-full h-full rounded overflow-hidden">
+                                      <img 
+                                        src={capturedItem.image} 
+                                        alt={`${finger.key}-${k}`} 
+                                        className="w-full h-full object-cover" 
+                                      />
+                                      <span className="absolute bottom-0.5 left-0.5 text-[7px] text-amber-300 font-mono bg-black/70 px-1 rounded truncate max-w-[48px]">
+                                        +ภาพ
+                                      </span>
+                                    </div>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteShot(finger.key, k, e)}
+                                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-rose-600 hover:bg-rose-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-xs"
+                                    title="ลบรูปภาพนี้"
+                                  >
+                                    <X className="w-2.5 h-2.5" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+
+                            {/* Add Extra Shot Button (+) */}
+                            <button
+                              type="button"
+                              onClick={() => handleAddCustomShot(finger.key)}
+                              className="w-8 h-13 rounded-lg border border-dashed border-slate-700 hover:border-emerald-400 hover:bg-emerald-950/30 text-slate-400 hover:text-emerald-300 flex flex-col items-center justify-center transition-all text-xs"
+                              title="เพิ่มรูปมุมเพิ่มเติมสำหรับนิ้วนี้"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+
                           </div>
 
                         </div>
@@ -1385,13 +1376,23 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
             </div>
 
             {/* Bottom Actions & Done Button */}
-            <div className="pt-3 border-t border-slate-800 flex items-center justify-between shrink-0">
+            <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between shrink-0 gap-2">
               <div className="text-xs text-slate-400 flex items-center space-x-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>บันทึกแล้ว {totalCaptured} / 70 มุม</span>
+                <span>บันทึกแล้วทั้งหมด <strong className="text-white">{totalCaptured}</strong> ภาพลายนิ้วมือ</span>
               </div>
 
               <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={handleSaveToFirebase}
+                  disabled={firebaseSyncing}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md flex items-center space-x-1.5 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Cloud className="w-4 h-4" />
+                  <span>บันทึกขึ้น Cloud</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={onClose}
@@ -1407,15 +1408,17 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
 
         </div>
 
-        {/* Global Modal Footer Tips */}
-        <div className="bg-slate-900 px-5 py-2 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 shrink-0">
+        {/* Global Modal Footer */}
+        <div className="bg-slate-900 px-5 py-2 border-t border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-400 shrink-0 gap-2">
           <div className="flex items-center space-x-2">
-            <span className="text-emerald-400 font-bold">Futronic FS80H Live Motion Engine</span>
+            <span className="text-emerald-400 font-bold">Futronic FS80H Optical Scanner System</span>
             <span>•</span>
-            <span>500 DPI • Continuous Optical Sensing</span>
+            <span className="text-slate-300">500 DPI Continuous Frame Feed</span>
+            <span>•</span>
+            <span className="text-blue-400">{firebaseMsg}</span>
           </div>
           <div className="flex items-center space-x-3 font-mono text-[11px]">
-            <span>ปุ่มลัด: [Space] บันทึกมุม | [1-7] สลับมุม | [←↑↓→] ขยับละเอียด</span>
+            <span>ปุ่มลัด: [Space] บันทึกมุม | [1-5] สลับตำแหน่ง Core/Delta</span>
           </div>
         </div>
 

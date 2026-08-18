@@ -13,6 +13,18 @@ import { FingerprintStudio } from './components/FingerprintStudio';
 import { ReportView } from './components/ReportView';
 import { InformationViews } from './components/InformationViews';
 import { ImportModal } from './components/ImportModals';
+import { 
+  db, 
+  collection, 
+  doc, 
+  setDoc, 
+  deleteDoc, 
+  onSnapshot, 
+  query, 
+  orderBy,
+  handleFirestoreError,
+  OperationType 
+} from './firebase';
 
 export default function App() {
   // Authentication State
@@ -41,14 +53,40 @@ export default function App() {
   });
 
   // Local / Cloud toggle
-  const [isLocalData, setIsLocalData] = useState<boolean>(true);
+  const [isLocalData, setIsLocalData] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
 
   // Modals
   const [importModalType, setImportModalType] = useState<'data' | 'report' | null>(null);
 
-  // Save clients to localStorage on update
+  // Firestore Real-time Sync
+  useEffect(() => {
+    try {
+      const q = query(collection(db, 'clients'), orderBy('created_at', 'desc'));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!snapshot.empty) {
+          const remoteClients: ClientProfile[] = [];
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            remoteClients.push({
+              id: docSnap.id,
+              ...data
+            } as ClientProfile);
+          });
+          setClients(remoteClients);
+        }
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'clients');
+      });
+
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn('Firestore subscription setup warning:', e);
+    }
+  }, []);
+
+  // Save clients to localStorage on update as offline fallback
   useEffect(() => {
     try {
       localStorage.setItem('mb_clients', JSON.stringify(clients));
@@ -141,8 +179,8 @@ export default function App() {
     setCurrentTab('report');
   };
 
-  // Save client changes
-  const handleSaveClient = (updatedClient: ClientProfile) => {
+  // Save client changes (Local + Firestore)
+  const handleSaveClient = async (updatedClient: ClientProfile) => {
     setClients(prev => {
       const exists = prev.find(c => c.id === updatedClient.id);
       if (exists) {
@@ -152,30 +190,48 @@ export default function App() {
       }
     });
     setSelectedClient(updatedClient);
+
+    // Sync to Firestore
+    try {
+      const clientDocRef = doc(db, 'clients', updatedClient.id);
+      await setDoc(clientDocRef, updatedClient, { merge: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `clients/${updatedClient.id}`);
+    }
   };
 
-  // Delete client
-  const handleDeleteClient = (clientId: string) => {
+  // Delete client (Local + Firestore)
+  const handleDeleteClient = async (clientId: string) => {
     setClients(prev => prev.filter(c => c.id !== clientId));
+    try {
+      const clientDocRef = doc(db, 'clients', clientId);
+      await deleteDoc(clientDocRef);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `clients/${clientId}`);
+    }
   };
 
   // Bulk action
   const handleBulkAction = (action: 'send_ai' | 'export_raw' | 'delete', selectedIds: string[]) => {
     if (action === 'delete') {
       if (confirm(`คุณต้องการลบข้อมูลที่เลือกทั้งหมด ${selectedIds.length} รายการ ใช่หรือไม่?`)) {
-        setClients(prev => prev.filter(c => !selectedIds.includes(c.id)));
+        selectedIds.forEach(id => handleDeleteClient(id));
       }
     } else if (action === 'send_ai') {
       setClients(prev => prev.map(c => {
         if (selectedIds.includes(c.id)) {
-          return { ...c, status: 'ai_processing', latest_modified: new Date().toISOString() };
+          const upd: ClientProfile = { ...c, status: 'ai_processing', latest_modified: new Date().toISOString() };
+          handleSaveClient(upd);
+          return upd;
         }
         return c;
       }));
       setTimeout(() => {
         setClients(prev => prev.map(c => {
           if (selectedIds.includes(c.id)) {
-            return { ...c, status: 'ai_resulted', latest_modified: new Date().toISOString() };
+            const upd: ClientProfile = { ...c, status: 'ai_resulted', latest_modified: new Date().toISOString() };
+            handleSaveClient(upd);
+            return upd;
           }
           return c;
         }));
@@ -186,13 +242,21 @@ export default function App() {
     }
   };
 
-  // Sync to cloud simulation
-  const handleSyncToCloud = () => {
+  // Sync to Firestore cloud
+  const handleSyncToCloud = async () => {
     setIsSyncing(true);
-    setTimeout(() => {
+    try {
+      for (const client of clients) {
+        const clientDocRef = doc(db, 'clients', client.id);
+        await setDoc(clientDocRef, client, { merge: true });
+      }
+      alert('ซิงค์ข้อมูล Client ทั้งหมดเข้าสู่ Firebase Firestore Cloud เรียบร้อยแล้ว');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'clients/bulk_sync');
+      alert('เกิดข้อผิดพลาดในการซิงค์ข้อมูลกับ Firebase');
+    } finally {
       setIsSyncing(false);
-      alert('ซิงค์ข้อมูล Client ทั้งหมดเข้าสู่ Cloud เรียบร้อยแล้ว');
-    }, 1200);
+    }
   };
 
   // Import completion handler
