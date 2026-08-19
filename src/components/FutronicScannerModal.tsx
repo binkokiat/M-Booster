@@ -34,7 +34,10 @@ import {
   Eye,
   Power,
   Code,
-  FileText
+  FileText,
+  Download,
+  Terminal,
+  Play
 } from 'lucide-react';
 import { FingerKey, FingerprintItem, RollPositionType } from '../types';
 import { 
@@ -48,6 +51,8 @@ import {
   generateContinuousLiveLoopFrame,
   generateSimulatedFS80HScan, 
   playCaptureChime,
+  downloadAutoStartupBat,
+  generateAutoStartupBatContent,
   ScannerStatus 
 } from '../utils/futronicService';
 import { db, doc, setDoc, handleFirestoreError, OperationType } from '../firebase';
@@ -154,8 +159,9 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   const stableFramesCountRef = useRef<number>(0);
   const isPollingHardwareRef = useRef<boolean>(false);
 
-  // Driver Sample Code Modal
+  // Driver Sample Code & Auto-Startup Modals
   const [showDriverCodeModal, setShowDriverCodeModal] = useState<boolean>(false);
+  const [showAutoStartupModal, setShowAutoStartupModal] = useState<boolean>(false);
   const [driverLangTab, setDriverLangTab] = useState<'python' | 'csharp'>('python');
 
   // Sleep & Power Saving Timer (Standby Mode)
@@ -258,30 +264,37 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   // Check Futronic FS80H Driver connection status
   const checkDriverStatus = useCallback(async () => {
     try {
-      const isOnline = await checkFutronicServerStatus(endpointUrl);
-      if (isOnline) {
+      const res = await checkFutronicServerStatus(endpointUrl);
+      if (res.isOnline) {
         setScannerStatus('connected');
-        setStatusMessage('ตรวจพบเครื่อง FS80H (พอร์ต 15270) พร้อมสแกน Continuous Frame');
+        setStatusMessage(res.message || 'ตรวจพบเครื่อง FS80H (พอร์ต 15270) เชื่อมต่ออัตโนมัติพร้อมสแกน');
         setFrameSource('real_hardware');
       } else {
         setScannerStatus('disconnected');
-        setStatusMessage('ไม่พบ Local Driver พอร์ต 15270 (เข้าสู่โหมด Continuous Demo เพื่อทดลองงาน)');
-        if (inputMode === 'hardware_fs80h') {
-          // Keep hardware mode or fallback frame
-        }
+        setStatusMessage('กำลังค้นหาเครื่อง FS80H อัตโนมัติ (หรือใช้โหมด Live Stream Demo)');
       }
     } catch {
       setScannerStatus('disconnected');
-      setStatusMessage('ไม่พบสัญญาณ Local Driver พอร์ต 15270');
+      setStatusMessage('กำลังค้นหาสัญญาณ Local Driver (พอร์ต 15270)...');
     }
-  }, [endpointUrl, inputMode]);
+  }, [endpointUrl]);
 
-  // Initial Boot check
+  // Initial Boot check & Continuous Auto-Discovery every 2.5 seconds
   useEffect(() => {
-    if (isOpen) {
-      checkDriverStatus();
-    }
-  }, [isOpen, checkDriverStatus]);
+    if (!isOpen) return;
+
+    // Check immediately
+    checkDriverStatus();
+
+    // Auto-probe periodically if not connected yet or in hardware mode
+    const autoProbeTimer = setInterval(() => {
+      if (scannerStatus !== 'connected' || inputMode === 'hardware_fs80h') {
+        checkDriverStatus();
+      }
+    }, 2500);
+
+    return () => clearInterval(autoProbeTimer);
+  }, [isOpen, scannerStatus, inputMode, checkDriverStatus]);
 
   // Handle Green LED state change
   const handleSetLedMode = async (mode: 'auto' | 'on' | 'off') => {
@@ -336,10 +349,14 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     if (!isOpen || inputMode !== 'hardware_fs80h' || isSleeping) return;
 
     let isMounted = true;
-    let pollInterval: any = null;
+    let pollTimeout: any = null;
 
     const pollHardware = async () => {
-      if (isPollingHardwareRef.current) return;
+      if (!isMounted) return;
+      if (isPollingHardwareRef.current) {
+        pollTimeout = setTimeout(pollHardware, 120);
+        return;
+      }
       isPollingHardwareRef.current = true;
 
       try {
@@ -382,16 +399,21 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         // Handled silently
       } finally {
         isPollingHardwareRef.current = false;
+        if (isMounted) {
+          // If connected, poll fast (~120ms); if not connected, back off to 800ms
+          const nextInterval = scannerStatus === 'connected' ? 120 : 800;
+          pollTimeout = setTimeout(pollHardware, nextInterval);
+        }
       }
     };
 
-    pollInterval = setInterval(pollHardware, 80); // ~12-15 FPS live poll from local driver
+    pollTimeout = setTimeout(pollHardware, 100);
 
     return () => {
       isMounted = false;
-      if (pollInterval) clearInterval(pollInterval);
+      if (pollTimeout) clearTimeout(pollTimeout);
     };
-  }, [isOpen, inputMode, isSleeping, endpointUrl]);
+  }, [isOpen, inputMode, isSleeping, endpointUrl, scannerStatus]);
 
   // Continuous Frame Loop Engine (Runs smoothly at 30 FPS) with AFD & Realtime Live Stream
   useEffect(() => {
@@ -883,6 +905,17 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
           {/* Top Right Controls & Firebase Status */}
           <div className="flex items-center space-x-2">
             
+            {/* Auto-Startup 1-Click Guide Button */}
+            <button
+              type="button"
+              onClick={() => setShowAutoStartupModal(true)}
+              className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all shadow-md cursor-pointer animate-pulse"
+              title="ตั้งค่าให้เครื่องสแกนเปิดและพร้อมใช้งานอัตโนมัติเมื่อเปิด Windows โดยไม่ต้องกดโปรแกรมเอง"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>เปิดอัตโนมัติ (Zero-Config)</span>
+            </button>
+
             {/* Firebase Sync Indicator */}
             <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 bg-slate-800 rounded-lg border border-slate-700 text-xs">
               <span className={`w-2 h-2 rounded-full ${firebaseStatus === 'synced' ? 'bg-emerald-400' : firebaseStatus === 'unsaved' ? 'bg-amber-400 animate-pulse' : 'bg-rose-400'}`} />
@@ -1152,11 +1185,34 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   {isSleeping 
                     ? '🌙 เซนเซอร์อยู่ในโหมดพักเครื่อง (Sleep Mode)' 
                     : afdEnabled && afdProgress > 0 
-                    ? `⚡ กำลังตรวจจับและจับภาพอัตโนมัติ... (${afdProgress}%)`
+                    ? `⚡ ตรวจพบลายนิ้วมือ... กำลังบันทึกอัตโนมัติ (${afdProgress}%)`
                     : statusMessage}
                 </span>
               </div>
               <span className="font-mono text-[11px] text-slate-400">FS80H 500 DPI Optical</span>
+            </div>
+
+            {/* Zero-Config Hands-Free Auto-Scanning Guide Banner */}
+            <div className="bg-gradient-to-r from-emerald-950/80 via-slate-900 to-teal-950/80 border border-emerald-500/30 rounded-xl p-2.5 shadow-sm flex items-center justify-between text-xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0">
+                  {currentFingerKey}
+                </div>
+                <div>
+                  <div className="flex items-center space-x-1.5 font-bold text-emerald-200">
+                    <span>วาง: {currentFingerDef.fingerNameTh}</span>
+                    <span className="text-slate-400 font-normal">→</span>
+                    <span className="text-cyan-300">{currentAngleDef.label}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {currentAngleDef.guide} (วางนิ้วแนบกระจก ระบบจะสแกนและเลื่อนมุมถัดไปให้อัตโนมัติ)
+                  </p>
+                </div>
+              </div>
+              <div className="hidden sm:flex items-center space-x-1 bg-emerald-950/90 border border-emerald-700/60 px-2 py-1 rounded-lg text-[10px] text-emerald-300 font-mono">
+                <Zap className="w-3 h-3 text-emerald-400" />
+                <span>Auto-Pilot</span>
+              </div>
             </div>
 
             {/* Continuous Frame Loop Scanner Viewport with Sleep & Realtime Overlay */}
@@ -1936,6 +1992,131 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         </div>
 
       </div>
+
+      {/* Auto-Startup & Zero-Config Guide Modal */}
+      {showAutoStartupModal && (
+        <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-emerald-500/50 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">ติดตั้งระบบเปิดเครื่องสแกน Futronic อัตโนมัติ (Zero-Config)</h3>
+                  <p className="text-xs text-slate-400">เปิดเครื่องคอมพิวเตอร์แล้วสแกนได้ทันที ไม่ต้องเปิดโปรแกรมเองและไม่ต้องตั้งค่าใดๆ</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAutoStartupModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto space-y-5 text-xs text-slate-200">
+              
+              {/* Option 1: 1-Click Install Script */}
+              <div className="p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 text-emerald-300 font-bold text-sm">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>วิธีที่ 1: ดับเบิลคลิกไฟล์ติดตั้งครั้งเดียว (แนะนำที่สุด)</span>
+                  </div>
+                  <span className="px-2 py-0.5 bg-emerald-900/60 text-emerald-300 rounded text-[10px] font-mono border border-emerald-700/50">1-Click Setup</span>
+                </div>
+                
+                <p className="text-slate-300 leading-relaxed">
+                  ในโฟลเดอร์ <code className="text-emerald-300 bg-slate-900 px-1 py-0.5 rounded font-mono">/Futronic/</code> บนเครื่องของคุณ ให้ดับเบิลคลิกไฟล์:
+                </p>
+
+                <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 font-mono text-emerald-400 flex items-center justify-between">
+                  <span className="font-bold">Install_Windows_Startup.bat</span>
+                  <button
+                    type="button"
+                    onClick={downloadAutoStartupBat}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-sans font-bold flex items-center space-x-1 transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>ดาวน์โหลดไฟล์ .bat</span>
+                  </button>
+                </div>
+
+                <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
+                  <li>โปรแกรมจะสร้าง Shortcut ลงในโฟลเดอร์ Windows Startup อัตโนมัติ</li>
+                  <li>เมื่อเปิดคอมพิวเตอร์ เครื่องสแกนจะทำงานเงียบๆ ในพื้นหลังทันที</li>
+                  <li>หน้าเว็บจะตรวจพบและเชื่อมต่อให้อัตโนมัติ 100% โดยไม่ต้องกดปุ่มใดๆ</li>
+                </ul>
+              </div>
+
+              {/* Option 2: Copy Path to Windows Startup Folder */}
+              <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-xl space-y-3">
+                <div className="flex items-center space-x-2 text-slate-200 font-bold text-sm">
+                  <Terminal className="w-4 h-4 text-blue-400" />
+                  <span>วิธีที่ 2: วางไฟล์ในโฟลเดอร์ Startup ของ Windows ด้วยตนเอง</span>
+                </div>
+
+                <p className="text-slate-400">
+                  กดปุ่ม <kbd className="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 font-mono text-white">Win + R</kbd> แล้วพิมพ์คำสั่งด้านล่างนี้เพื่อเปิดโฟลเดอร์ Startup:
+                </p>
+
+                <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800 font-mono text-blue-300 flex items-center justify-between">
+                  <span>shell:startup</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText('shell:startup');
+                      alert('คัดลอกคำสั่ง "shell:startup" แล้ว นำไปวางในช่อง Run (Win+R) ได้เลย');
+                    }}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded font-sans text-xs flex items-center space-x-1"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>คัดลอก</span>
+                  </button>
+                </div>
+
+                <p className="text-slate-400 text-[11px]">
+                  จากนั้นคัดลอกไฟล์ <strong className="text-white">FtrScanHttpServer.exe</strong> หรือทำ Shortcut มาวางในโฟลเดอร์นี้
+                </p>
+              </div>
+
+              {/* Status Summary */}
+              <div className="p-3 bg-blue-950/30 border border-blue-800/40 rounded-xl flex items-start space-x-2.5">
+                <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-blue-200 space-y-1">
+                  <p><strong>การทำงานของระบบเว็บ:</strong></p>
+                  <p>ระบบเว็บจะทำการค้นหาเครื่อง FS80H ในเครื่องของคุณตลอดเวลา เมื่อเสียบเครื่องหรือสตาร์ท Windows ระบบจะขึ้นสถานะ 🟢 เชื่อมต่ออัตโนมัติพร้อมสแกนทันที</p>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
+              <button
+                type="button"
+                onClick={checkDriverStatus}
+                className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium rounded-lg flex items-center space-x-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                <span>ตรวจสอบสถานะตอนนี้</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAutoStartupModal(false)}
+                className="px-5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-sm"
+              >
+                เข้าใจแล้ว / ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Driver Sample Code Popup (FTR_SHOW_BITMAP / GetFrame continuous loop) */}
       {showDriverCodeModal && (

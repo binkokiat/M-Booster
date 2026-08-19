@@ -996,11 +996,11 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsFutronicModalOpen(true)}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shrink-0 shadow-xs transition-all cursor-pointer"
-                  title="เปิดสตูดิโอสแกนเนอร์ Futronic FS80H"
+                  className="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shrink-0 shadow-md transition-all cursor-pointer"
+                  title="เปิดสถานีสแกนเนอร์ Futronic FS80H ระบบตรวจจับและเลื่อนนิ้วอัตโนมัติ"
                 >
-                  <Cpu className="w-3.5 h-3.5 text-amber-300" />
-                  <span>สถานีสแกนเนอร์ FS80H</span>
+                  <Cpu className="w-4 h-4 text-emerald-200" />
+                  <span>สแกนอัตโนมัติ FS80H</span>
                 </button>
               </div>
             </div>

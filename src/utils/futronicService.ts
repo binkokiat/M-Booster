@@ -82,6 +82,54 @@ export async function checkMbtScannerStatus(url: string = DEFAULT_MBT_SCANNER_UR
   };
 }
 
+export function generateAutoStartupBatContent(): string {
+  return `@echo off
+chcp 65001 >nul
+title ติดตั้งระบบเปิดเครื่องสแกน Futronic FS80H อัตโนมัติ
+echo ==============================================================================
+echo   ติดตั้งระบบเปิดเครื่องสแกน Futronic FS80H อัตโนมัติ (Auto-Startup)
+echo ==============================================================================
+echo.
+echo กำลังตั้งค่าให้ FtrScanHttpServer.exe ทำงานอัตโนมัติทุกครั้งที่เปิด Windows...
+echo.
+
+cd /d "%~dp0"
+set "TARGET_EXE=%~dp0FtrScanHttpServer.exe"
+set "STARTUP_FOLDER=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"
+set "SHORTCUT_PATH=%STARTUP_FOLDER%\\Futronic_Scanner_Auto.lnk"
+
+powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%SHORTCUT_PATH%'); $s.TargetPath = '%TARGET_EXE%'; $s.WorkingDirectory = '%~dp0'; $s.WindowStyle = 7; $s.Save()"
+
+if exist "%SHORTCUT_PATH%" (
+    echo [สำเร็จ] ติดตั้งระบบ Auto-Startup เรียบร้อยแล้ว!
+    echo.
+    echo ต่อไปนี้เมื่อเปิดคอมพิวเตอร์ เครื่องสแกนจะพร้อมใช้งานทันทีโดยไม่ต้องเปิดโปรแกรมเอง
+    echo.
+    start "" "%TARGET_EXE%"
+) else (
+    echo [แจ้งเตือน] กรุณาคัดลอกไฟล์ FtrScanHttpServer.exe ไปไว้ที่:
+    echo %STARTUP_FOLDER%
+)
+
+echo.
+echo กดปุ่มใดๆ เพื่อปิดหน้าต่างนี้...
+pause >nul
+`;
+}
+
+export function downloadAutoStartupBat() {
+  const content = generateAutoStartupBatContent();
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'Install_Windows_Startup.bat';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 /**
  * Check if the local Futronic ftrScanAPI Web Server (FtrScanHttpServer.exe) is running on port 15270
  */
@@ -212,9 +260,14 @@ export async function pollFutronicLivePreviewFrame(
   qualityScore?: number;
   error?: string;
 }> {
+  let timeoutId: any = null;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 200); // Fast non-blocking timeout ~200ms
+    timeoutId = setTimeout(() => {
+      try {
+        controller.abort();
+      } catch {}
+    }, 400);
 
     // Try common live preview endpoints used by Futronic web services
     const baseUrl = endpoint.replace(/\/fpoperation$/, '');
@@ -226,35 +279,41 @@ export async function pollFutronicLivePreviewFrame(
       signal: controller.signal
     }).catch(() => null);
 
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
 
     if (res && res.ok) {
       const contentType = res.headers.get('content-type') || '';
       if (contentType.includes('application/json')) {
-        const data = await res.json();
-        return {
-          success: true,
-          dataUrl: data.image || data.dataUrl || data.frame || (data.bitmap ? `data:image/jpeg;base64,${data.bitmap}` : ''),
-          isFingerPresent: typeof data.isFingerPresent === 'boolean' ? data.isFingerPresent : (data.qualityScore > 10),
-          qualityScore: data.qualityScore || (data.isFingerPresent ? 85 : 0)
-        };
+        const data = await res.json().catch(() => null);
+        if (data) {
+          return {
+            success: true,
+            dataUrl: data.image || data.dataUrl || data.frame || (data.bitmap ? `data:image/jpeg;base64,${data.bitmap}` : ''),
+            isFingerPresent: typeof data.isFingerPresent === 'boolean' ? data.isFingerPresent : (data.qualityScore > 10),
+            qualityScore: data.qualityScore || (data.isFingerPresent ? 85 : 0)
+          };
+        }
       } else if (contentType.includes('image/')) {
-        const blob = await res.blob();
-        const dataUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-        return {
-          success: true,
-          dataUrl,
-          isFingerPresent: true,
-          qualityScore: 90
-        };
+        const blob = await res.blob().catch(() => null);
+        if (blob) {
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          return {
+            success: true,
+            dataUrl,
+            isFingerPresent: true,
+            qualityScore: 90
+          };
+        }
       }
     }
   } catch {
     // Non-blocking poll safely ignores transient network timeouts
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 
   return { success: false };
