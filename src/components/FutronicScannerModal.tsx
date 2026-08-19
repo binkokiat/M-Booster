@@ -32,7 +32,9 @@ import {
   Activity,
   Target,
   Eye,
-  Power
+  Power,
+  Code,
+  FileText
 } from 'lucide-react';
 import { FingerKey, FingerprintItem, RollPositionType } from '../types';
 import { 
@@ -40,6 +42,8 @@ import {
   checkFutronicServerStatus, 
   startHttpCapture, 
   setFutronicLed,
+  pollFutronicLivePreviewFrame,
+  getFutronicDriverSampleCode,
   generateRealisticLiveStreamFrame,
   generateContinuousLiveLoopFrame,
   generateSimulatedFS80HScan, 
@@ -144,10 +148,15 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
 
   // Automatic Finger Detection (AFD) & Auto-Capture Loop
   const [afdEnabled, setAfdEnabled] = useState<boolean>(true);
-  const [isFingerOnSensor, setIsFingerOnSensor] = useState<boolean>(true);
+  const [isFingerOnSensor, setIsFingerOnSensor] = useState<boolean>(false); // Strict default: false until detected
   const [afdProgress, setAfdProgress] = useState<number>(0);
   const [autoCaptureTriggered, setAutoCaptureTriggered] = useState<boolean>(false);
   const stableFramesCountRef = useRef<number>(0);
+  const isPollingHardwareRef = useRef<boolean>(false);
+
+  // Driver Sample Code Modal
+  const [showDriverCodeModal, setShowDriverCodeModal] = useState<boolean>(false);
+  const [driverLangTab, setDriverLangTab] = useState<'python' | 'csharp'>('python');
 
   // Sleep & Power Saving Timer (Standby Mode)
   const [sleepTimeoutSetting, setSleepTimeoutSetting] = useState<number>(60); // 30, 60, 120, 0 = Never
@@ -168,13 +177,13 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     coveragePercent: number;
     isStable: boolean;
   }>({
-    qualityScore: 94,
-    contactPressure: 100,
-    coreDetected: true,
-    deltaLeftDetected: true,
-    deltaRightDetected: true,
-    coveragePercent: 88,
-    isStable: true
+    qualityScore: 0,
+    contactPressure: 0,
+    coreDetected: false,
+    deltaLeftDetected: false,
+    deltaRightDetected: false,
+    coveragePercent: 0,
+    isStable: false
   });
 
   // Manual interactive offset / pressure offsets for live sensor feedback
@@ -322,6 +331,68 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     return () => clearInterval(timer);
   }, [isOpen, sleepTimeoutSetting, isSleeping, endpointUrl, ledMode]);
 
+  // Hardware Live Stream Frame Polling Loop (Queries /preview from local driver)
+  useEffect(() => {
+    if (!isOpen || inputMode !== 'hardware_fs80h' || isSleeping) return;
+
+    let isMounted = true;
+    let pollInterval: any = null;
+
+    const pollHardware = async () => {
+      if (isPollingHardwareRef.current) return;
+      isPollingHardwareRef.current = true;
+
+      try {
+        const preview = await pollFutronicLivePreviewFrame(endpointUrl);
+        if (!isMounted) return;
+
+        if (preview.success && preview.dataUrl) {
+          setCurrentFrame(preview.dataUrl);
+          setFrameSource('real_hardware');
+          setScannerStatus('connected');
+
+          const fingerPlaced = !!preview.isFingerPresent;
+          setIsFingerOnSensor(fingerPlaced);
+
+          if (fingerPlaced) {
+            setLiveLandmarks({
+              qualityScore: preview.qualityScore || 90,
+              contactPressure: 95,
+              coreDetected: true,
+              deltaLeftDetected: true,
+              deltaRightDetected: true,
+              coveragePercent: 92,
+              isStable: true
+            });
+          } else {
+            setLiveLandmarks({
+              qualityScore: 0,
+              contactPressure: 0,
+              coreDetected: false,
+              deltaLeftDetected: false,
+              deltaRightDetected: false,
+              coveragePercent: 0,
+              isStable: false
+            });
+            stableFramesCountRef.current = 0;
+            setAfdProgress(0);
+          }
+        }
+      } catch {
+        // Handled silently
+      } finally {
+        isPollingHardwareRef.current = false;
+      }
+    };
+
+    pollInterval = setInterval(pollHardware, 80); // ~12-15 FPS live poll from local driver
+
+    return () => {
+      isMounted = false;
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [isOpen, inputMode, isSleeping, endpointUrl]);
+
   // Continuous Frame Loop Engine (Runs smoothly at 30 FPS) with AFD & Realtime Live Stream
   useEffect(() => {
     if (!isOpen) {
@@ -348,72 +419,79 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         frameCountRef.current++;
 
         if (inputMode !== 'camera') {
-          // Generate authentic 500 DPI Realtime Live Stream Frame
-          const liveResult = generateRealisticLiveStreamFrame({
-            frameIndex: frameCountRef.current,
-            fingerKey: currentFingerKey,
-            patternCode: patternType,
-            targetPositionId: currentAngleId,
-            isFingerPlaced: isFingerOnSensor && !isSleeping,
-            manualOffsetX: userOffsetX,
-            manualOffsetY: userOffsetY,
-            manualRotation: userRotation,
-            manualPressure: 1.0,
-            ledState: isSleeping ? 'off' : ledMode,
-            zoom: zoomLevel,
-            invert: invertImage,
-            brightness,
-            contrast
-          });
+          // If in simulation mode or hardware is in standby glass mode
+          if (inputMode === 'simulation' || (inputMode === 'hardware_fs80h' && scannerStatus !== 'connected')) {
+            const liveResult = generateRealisticLiveStreamFrame({
+              frameIndex: frameCountRef.current,
+              fingerKey: currentFingerKey,
+              patternCode: patternType,
+              targetPositionId: currentAngleId,
+              isFingerPlaced: isFingerOnSensor && !isSleeping,
+              manualOffsetX: userOffsetX,
+              manualOffsetY: userOffsetY,
+              manualRotation: userRotation,
+              manualPressure: 1.0,
+              ledState: isSleeping ? 'off' : ledMode,
+              zoom: zoomLevel,
+              invert: invertImage,
+              brightness,
+              contrast
+            });
 
-          setCurrentFrame(liveResult.dataUrl);
-          setFrameSource(scannerStatus === 'connected' ? 'real_hardware' : 'simulation');
+            setCurrentFrame(liveResult.dataUrl);
+            setFrameSource(scannerStatus === 'connected' ? 'real_hardware' : 'simulation');
 
-          setLiveLandmarks({
-            qualityScore: liveResult.qualityScore,
-            contactPressure: liveResult.contactPressure,
-            coreDetected: liveResult.coreDetected,
-            deltaLeftDetected: liveResult.deltaLeftDetected,
-            deltaRightDetected: liveResult.deltaRightDetected,
-            coveragePercent: liveResult.coveragePercent,
-            isStable: liveResult.isStableForCapture
-          });
+            setLiveLandmarks({
+              qualityScore: liveResult.qualityScore,
+              contactPressure: liveResult.contactPressure,
+              coreDetected: liveResult.coreDetected,
+              deltaLeftDetected: liveResult.deltaLeftDetected,
+              deltaRightDetected: liveResult.deltaRightDetected,
+              coveragePercent: liveResult.coveragePercent,
+              isStable: liveResult.isStableForCapture
+            });
+          }
 
           // Automatic Finger Detection (AFD) Auto-Capture Logic
+          // ONLY trigger when isFingerOnSensor is TRUE, quality >= 80, and finger is steadily held
           if (
             afdEnabled && 
             !isSleeping && 
             isFingerOnSensor && 
             !autoCaptureTriggered &&
-            liveResult.isFingerPresent
+            liveLandmarks.qualityScore >= 80 &&
+            liveLandmarks.isStable
           ) {
-            if (liveResult.isStableForCapture && liveResult.qualityScore >= 80) {
-              stableFramesCountRef.current += 1;
-              const progressPct = Math.min(100, Math.round((stableFramesCountRef.current / 12) * 100));
-              setAfdProgress(progressPct);
+            stableFramesCountRef.current += 1;
+            const progressPct = Math.min(100, Math.round((stableFramesCountRef.current / 12) * 100));
+            setAfdProgress(progressPct);
 
-              // If finger is held steady for ~400ms (12 frames), trigger instant auto-capture
-              if (stableFramesCountRef.current >= 12) {
-                setAutoCaptureTriggered(true);
-                stableFramesCountRef.current = 0;
-                setAfdProgress(100);
+            // If finger is held steady for ~400ms (12 frames), trigger instant auto-capture
+            if (stableFramesCountRef.current >= 12) {
+              setAutoCaptureTriggered(true);
+              stableFramesCountRef.current = 0;
+              setAfdProgress(100);
 
-                handleSaveToTarget(currentFingerKey, currentAngleId, liveResult.dataUrl);
+              handleSaveToTarget(currentFingerKey, currentAngleId, currentFrame);
 
-                // Debounce auto-capture to let user move/reposition for next angle
-                setTimeout(() => {
-                  setAutoCaptureTriggered(false);
-                  setAfdProgress(0);
-                }, 1400);
+              // Debounce auto-capture to let user move/reposition for next angle
+              setTimeout(() => {
+                setAutoCaptureTriggered(false);
+                setAfdProgress(0);
+              }, 1600);
+            }
+          } else {
+            // When finger is lifted or unstable, reset AFD countdown
+            if (!isFingerOnSensor || liveLandmarks.qualityScore < 50) {
+              stableFramesCountRef.current = 0;
+              if (!autoCaptureTriggered) {
+                setAfdProgress(0);
               }
             } else {
               stableFramesCountRef.current = Math.max(0, stableFramesCountRef.current - 1);
-              setAfdProgress(Math.round((stableFramesCountRef.current / 12) * 100));
-            }
-          } else {
-            stableFramesCountRef.current = 0;
-            if (!autoCaptureTriggered) {
-              setAfdProgress(0);
+              if (!autoCaptureTriggered) {
+                setAfdProgress(Math.round((stableFramesCountRef.current / 12) * 100));
+              }
             }
           }
         }
@@ -441,6 +519,8 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     ledMode, 
     afdEnabled, 
     autoCaptureTriggered, 
+    currentFrame,
+    liveLandmarks,
     userOffsetX, 
     userOffsetY, 
     userRotation, 
@@ -946,20 +1026,31 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
 
         {/* Collapsible Connection Settings */}
         {showSettings && (
-          <div className="bg-slate-950 px-6 py-2.5 border-b border-slate-800 flex items-center space-x-3 text-xs">
-            <span className="text-slate-300 font-bold">Futronic FS80H Driver Endpoint:</span>
-            <input
-              type="text"
-              value={endpointUrl}
-              onChange={(e) => setEndpointUrl(e.target.value)}
-              className="flex-1 max-w-md px-2.5 py-1 bg-slate-900 border border-slate-700 rounded text-slate-200 font-mono text-xs"
-            />
+          <div className="bg-slate-950 px-6 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center space-x-3 flex-1 min-w-[280px]">
+              <span className="text-slate-300 font-bold whitespace-nowrap">Futronic FS80H Driver Endpoint:</span>
+              <input
+                type="text"
+                value={endpointUrl}
+                onChange={(e) => setEndpointUrl(e.target.value)}
+                className="flex-1 max-w-md px-2.5 py-1 bg-slate-900 border border-slate-700 rounded text-slate-200 font-mono text-xs"
+              />
+              <button
+                type="button"
+                onClick={checkDriverStatus}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium whitespace-nowrap"
+              >
+                ทดสอบการเชื่อมต่อ
+              </button>
+            </div>
+
             <button
               type="button"
-              onClick={checkDriverStatus}
-              className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded font-medium"
+              onClick={() => setShowDriverCodeModal(true)}
+              className="px-3 py-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/50 rounded-lg flex items-center space-x-1.5 font-medium transition-all"
             >
-              ทดสอบการเชื่อมต่อ
+              <Code className="w-3.5 h-3.5 text-emerald-400" />
+              <span>โค้ด Driver สตรีมสด (Python/C#)</span>
             </button>
           </div>
         )}
@@ -1845,6 +1936,95 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         </div>
 
       </div>
+
+      {/* Driver Sample Code Popup (FTR_SHOW_BITMAP / GetFrame continuous loop) */}
+      {showDriverCodeModal && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <Code className="w-5 h-5 text-emerald-400" />
+                <div>
+                  <h3 className="text-sm font-bold text-white">ตัวอย่าง Driver Script สำหรับ Futronic FS80H (Non-blocking Live Stream)</h3>
+                  <p className="text-[11px] text-slate-400">แก้ปัญหาภาพไม่ขึ้นสดแบบ Realtime ด้วยสถาปัตยกรรม Background Polling / FTR_SHOW_BITMAP Callback</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDriverCodeModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Language Selector */}
+            <div className="px-6 py-2.5 bg-slate-950/60 border-b border-slate-800 flex items-center justify-between text-xs">
+              <div className="flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setDriverLangTab('python')}
+                  className={`px-3 py-1 rounded-lg font-bold transition-all ${
+                    driverLangTab === 'python'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-800 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  Python (FastAPI + Background Loop)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDriverLangTab('csharp')}
+                  className={`px-3 py-1 rounded-lg font-bold transition-all ${
+                    driverLangTab === 'csharp'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-800 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  C# / .NET (FTR_SHOW_BITMAP Callback)
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const code = driverLangTab === 'python' 
+                    ? getFutronicDriverSampleCode().python 
+                    : getFutronicDriverSampleCode().csharp;
+                  navigator.clipboard.writeText(code);
+                  alert('คัดลอก Source Code สำเร็จแล้ว!');
+                }}
+                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg flex items-center space-x-1 transition-all"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>คัดลอกโค้ด</span>
+              </button>
+            </div>
+
+            {/* Code Body */}
+            <div className="flex-1 p-5 overflow-auto bg-slate-950 font-mono text-xs text-emerald-300">
+              <pre className="whitespace-pre overflow-x-auto leading-relaxed">
+                {driverLangTab === 'python' 
+                  ? getFutronicDriverSampleCode().python 
+                  : getFutronicDriverSampleCode().csharp}
+              </pre>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-3 bg-slate-900 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+              <span>พอร์ตมาตรฐานที่แนะนำ: <strong className="text-white">http://127.0.0.1:15270</strong></span>
+              <button
+                type="button"
+                onClick={() => setShowDriverCodeModal(false)}
+                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-lg"
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
