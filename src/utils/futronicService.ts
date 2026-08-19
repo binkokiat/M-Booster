@@ -47,9 +47,14 @@ export async function checkMbtScannerStatus(url: string = DEFAULT_MBT_SCANNER_UR
   isOnline: boolean;
   message: string;
 }> {
+  let timeoutId: any = null;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    timeoutId = setTimeout(() => {
+      try {
+        controller.abort();
+      } catch {}
+    }, 2500);
 
     const res = await fetch(url, {
       method: 'GET',
@@ -57,7 +62,7 @@ export async function checkMbtScannerStatus(url: string = DEFAULT_MBT_SCANNER_UR
       signal: controller.signal
     }).catch(() => null);
 
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
 
     if (res !== null) {
       return {
@@ -65,7 +70,11 @@ export async function checkMbtScannerStatus(url: string = DEFAULT_MBT_SCANNER_UR
         message: 'เชื่อมต่อ MBT Cloud Scanner สำเร็จ'
       };
     }
-  } catch (e) {}
+  } catch {
+    // Silently handle any network/abort errors
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 
   return {
     isOnline: true,
@@ -80,9 +89,14 @@ export async function checkFutronicServerStatus(endpoint: string = DEFAULT_FUTRO
   isOnline: boolean;
   message: string;
 }> {
+  let timeoutId: any = null;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    timeoutId = setTimeout(() => {
+      try {
+        controller.abort();
+      } catch {}
+    }, 1500);
 
     // Test ping via POST attempt
     const res = await fetch(endpoint, {
@@ -92,7 +106,7 @@ export async function checkFutronicServerStatus(endpoint: string = DEFAULT_FUTRO
       signal: controller.signal
     }).catch(() => null);
 
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
 
     if (res && (res.status === 200 || res.status === 400 || res.status === 405)) {
       return {
@@ -100,8 +114,10 @@ export async function checkFutronicServerStatus(endpoint: string = DEFAULT_FUTRO
         message: 'เชื่อมต่อ Local Driver (พอร์ต 15270) สำเร็จ พร้อมสตรีมภาพสด'
       };
     }
-  } catch (e) {
-    // Network or CORS error
+  } catch {
+    // Network, CORS, or Abort error handled safely
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 
   return {

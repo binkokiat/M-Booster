@@ -53,7 +53,7 @@ interface FutronicScannerModalProps {
   onApplyScan: (dataUrl: string, targetAngle?: string, targetFingerKey?: FingerKey) => void;
   onNextAngle?: () => void;
   existingFingerprints?: Record<FingerKey, FingerprintItem>;
-  onBulkUpdateFingerprints?: (updated: Record<FingerKey, FingerprintItem>) => void;
+  onBulkUpdateFingerprints?: (matrix: Record<string, Record<string, { image: string; type: any; label: string }>>) => void;
 }
 
 // 10 Fingers strictly ordered: Left hand (Thumb -> Pinky), then Right hand (Thumb -> Pinky)
@@ -514,15 +514,20 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     setFirebaseSyncing(true);
     setFirebaseMsg('กำลังบันทึกลายนิ้วมือขึ้น Firebase Firestore...');
     try {
-      const scanDocRef = doc(db, 'scans', clientId || `scan_${Date.now()}`);
+      const targetId = clientId || `client_${Date.now()}`;
+      const scanDocRef = doc(db, 'scans', targetId);
       
-      // Structure clean payload
+      // Structure clean payload for scans collection
       const payload: Record<string, any> = {
-        client_id: clientId,
+        id: targetId,
+        client_id: targetId,
         updated_at: new Date().toISOString(),
         device: 'Futronic FS80H Optical Scanner (500 DPI)',
         fingerprints: {}
       };
+
+      // Also format standard fingerprints dictionary for client profile document
+      const clientFingerprints: Record<string, any> = {};
 
       Object.keys(capturedMatrix).forEach(fKey => {
         const fingerData = capturedMatrix[fKey];
@@ -531,28 +536,66 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
             shots_count: Object.keys(fingerData).length,
             shots: fingerData
           };
+
+          const anglesMap: Record<string, any> = {};
+          Object.keys(fingerData).forEach(posKey => {
+            anglesMap[posKey] = {
+              image: fingerData[posKey].image,
+              position_type: fingerData[posKey].type,
+              position_label_th: fingerData[posKey].label,
+              lines: [],
+              plot_coordinates: [],
+              capturedAt: new Date().toISOString()
+            };
+          });
+
+          clientFingerprints[fKey] = {
+            key: fKey,
+            finger_name_th: FINGERS_ORDER.find(f => f.key === fKey)?.fingerNameTh || fKey,
+            hand: fKey.startsWith('L') ? 'left' : 'right',
+            angles: anglesMap,
+            isComplete: true
+          };
         }
       });
 
+      // 1. Save to scans collection
       await setDoc(scanDocRef, payload, { merge: true });
+
+      // 2. Save directly to clients collection
+      const clientDocRef = doc(db, 'clients', targetId);
+      await setDoc(clientDocRef, {
+        fingerprints: clientFingerprints,
+        has_scans: Object.keys(clientFingerprints).length > 0,
+        latest_modified: new Date().toISOString()
+      }, { merge: true });
       
       setFirebaseStatus('synced');
-      setFirebaseMsg('บันทึกข้อมูลขึ้น Firebase Firestore เรียบร้อยแล้ว (Realtime Sync)');
-      
-      // Also update client record status
-      const clientDocRef = doc(db, 'clients', clientId);
-      await setDoc(clientDocRef, {
-        latest_modified: new Date().toISOString(),
-        has_scans: true
-      }, { merge: true });
+      setFirebaseMsg('บันทึกรูปลายนิ้วมือขึ้น Firebase Firestore สำเร็จเรียบร้อย');
 
+      // Update parent studio state
+      if (onBulkUpdateFingerprints) {
+        onBulkUpdateFingerprints(capturedMatrix);
+      }
+
+      return true;
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `scans/${clientId}`);
       setFirebaseStatus('error');
       setFirebaseMsg('การบันทึก Firebase ขัดข้อง (ดูรายละเอียดในคอนโซล)');
+      return false;
     } finally {
       setFirebaseSyncing(false);
     }
+  };
+
+  const handleFinishAndClose = async () => {
+    if (onBulkUpdateFingerprints) {
+      onBulkUpdateFingerprints(capturedMatrix);
+    }
+    // Auto-save to Firebase
+    await handleSaveToFirebase();
+    onClose();
   };
 
   // Mode Switch
@@ -1395,7 +1438,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
 
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleFinishAndClose}
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-lg flex items-center space-x-1.5 transition-all cursor-pointer"
                 >
                   <span>เสร็จสิ้นและนำไปวิเคราะห์</span>

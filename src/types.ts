@@ -109,6 +109,8 @@ export interface ClientProfile {
   assigned_analyst?: string;
   created_at: string;
   latest_modified: string;
+  has_scans?: boolean;
+  fingerprints?: Record<FingerKey, FingerprintItem>;
   palm_scans?: {
     left_palm?: {
       image: string;

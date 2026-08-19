@@ -86,6 +86,9 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
   
   // Fingerprints map
   const [fingerprints, setFingerprints] = useState<Record<FingerKey, FingerprintItem>>(() => {
+    if (client.fingerprints && Object.keys(client.fingerprints).length > 0) {
+      return client.fingerprints;
+    }
     const init: any = {};
     FINGER_DEFINITIONS.forEach(f => {
       init[f.key] = {
@@ -153,6 +156,58 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
     setSelectedFingerKey(hand === 'left' ? 'L1' : 'R1');
   };
 
+  // Bulk update fingerprints from Scanner Station
+  const handleBulkUpdateFingerprints = (matrix: Record<string, Record<string, { image: string; type: any; label: string }>>) => {
+    setFingerprints(prev => {
+      const next: Record<FingerKey, FingerprintItem> = { ...prev };
+      Object.keys(matrix).forEach(fKey => {
+        const fingerKey = fKey as FingerKey;
+        const shots = matrix[fKey];
+        if (shots && Object.keys(shots).length > 0) {
+          const existing = next[fingerKey] || {
+            key: fingerKey,
+            finger_name_th: FINGER_DEFINITIONS.find(f => f.key === fingerKey)?.th || fingerKey,
+            finger_name_en: FINGER_DEFINITIONS.find(f => f.key === fingerKey)?.en || fingerKey,
+            hand: fingerKey.startsWith('L') ? 'left' : 'right',
+            finger_type: 'thumb',
+            ai_type: 'Wt',
+            ai_RC1: 14,
+            ai_RC2: 12,
+            analyst_type: 'Wt',
+            analyst_RC1: 14,
+            analyst_RC2: 12,
+            angles: {}
+          };
+          const newAngles = { ...existing.angles };
+          Object.keys(shots).forEach(shotId => {
+            newAngles[shotId] = {
+              ...(newAngles[shotId] || { lines: [], plot_coordinates: [] }),
+              image: shots[shotId].image,
+              position_type: shots[shotId].type,
+              position_label_th: shots[shotId].label,
+              capturedAt: new Date().toISOString()
+            };
+          });
+          next[fingerKey] = {
+            ...existing,
+            angles: newAngles,
+            isComplete: true
+          };
+        }
+      });
+
+      const updatedClient: ClientProfile = {
+        ...clientForm,
+        fingerprints: next,
+        has_scans: true,
+        latest_modified: new Date().toISOString()
+      };
+      setClientForm(updatedClient);
+      onSave(updatedClient);
+      return next;
+    });
+  };
+
   // Apply Futronic Scan Image
   const handleApplyFutronicScan = (dataUrl: string, targetAngle?: string, targetFingerKey?: FingerKey) => {
     const fingerToUse = targetFingerKey || selectedFingerKey;
@@ -176,7 +231,7 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
         analyst_RC2: 12,
         angles: {}
       };
-      return {
+      const updatedFingerprints: Record<FingerKey, FingerprintItem> = {
         ...prev,
         [fingerToUse]: {
           ...existingFinger,
@@ -190,6 +245,17 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
           }
         }
       };
+
+      const updatedClient: ClientProfile = {
+        ...clientForm,
+        fingerprints: updatedFingerprints,
+        has_scans: true,
+        latest_modified: new Date().toISOString()
+      };
+      setClientForm(updatedClient);
+      onSave(updatedClient);
+
+      return updatedFingerprints;
     });
   };
 
@@ -370,16 +436,20 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
   const handleSaveAll = () => {
     const updatedClient: ClientProfile = {
       ...clientForm,
+      fingerprints,
+      has_scans: true,
       latest_modified: new Date().toISOString()
     };
     onSave(updatedClient);
-    alert('บันทึกข้อมูลสำเร็จ!');
+    alert('บันทึกข้อมูลและรูปลายนิ้วมือทั้งหมดขึ้น Firebase สำเร็จเรียบร้อย!');
   };
 
   const handleUpdateStatus = (newStatus: ClientProfile['status']) => {
     const updatedClient: ClientProfile = {
       ...clientForm,
       status: newStatus,
+      fingerprints,
+      has_scans: true,
       latest_modified: new Date().toISOString()
     };
     setClientForm(updatedClient);
@@ -1133,6 +1203,7 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
         onApplyScan={handleApplyFutronicScan}
         onNextAngle={handleNextAngle}
         existingFingerprints={fingerprints}
+        onBulkUpdateFingerprints={handleBulkUpdateFingerprints}
       />
 
     </div>
