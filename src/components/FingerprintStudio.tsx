@@ -22,7 +22,11 @@ import {
   BrainCircuit,
   Info,
   Cpu,
-  Zap
+  Zap,
+  Scan,
+  Activity,
+  Loader2,
+  Play
 } from 'lucide-react';
 import { calculateComprehensiveReport } from '../utils/dermatoglyphics';
 import { generateRealisticFingerprintSVG } from '../utils/sampleImages';
@@ -127,6 +131,13 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
     return init;
   });
 
+  // Scanning Visual Feedback / Temporary Preview State
+  const [isScanningFeedback, setIsScanningFeedback] = useState<boolean>(false);
+  const [scanFeedbackStage, setScanFeedbackStage] = useState<'detecting' | 'capturing' | 'enhancing' | 'completed' | 'idle'>('idle');
+  const [temporaryPreviewImage, setTemporaryPreviewImage] = useState<string | null>(null);
+  const [scanFeedbackMessage, setScanFeedbackMessage] = useState<string>('');
+  const [scanProgress, setScanProgress] = useState<number>(0);
+
   // Canvas / Editor tools state
   const [activeTool, setActiveTool] = useState<'pan' | 'plot' | 'line'>('plot');
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -154,6 +165,60 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
   const handleSelectHand = (hand: 'left' | 'right') => {
     setActiveHand(hand);
     setSelectedFingerKey(hand === 'left' ? 'L1' : 'R1');
+  };
+
+  // Trigger quick scan simulation with realistic live optical feedback on studio canvas
+  const triggerSimulatedStudioScan = (targetKey?: FingerKey, targetAngle?: string) => {
+    const fingerKey = targetKey || selectedFingerKey;
+    const angleKey = targetAngle || activeAngle;
+    const currentDef = FINGER_DEFINITIONS.find(f => f.key === fingerKey);
+    const pattern = fingerprints[fingerKey]?.analyst_type || fingerprints[fingerKey]?.ai_type || (fingerKey.includes('1') ? 'WC' : 'UL');
+
+    setIsScanningFeedback(true);
+    setScanFeedbackStage('detecting');
+    setScanProgress(15);
+    setScanFeedbackMessage(`Futronic FS80H: ตรวจจับระนาบนิ้วมือ ${currentDef?.th || fingerKey}...`);
+    
+    // Generate realistic optical placeholder frame
+    const simulatedScan = generateRealisticFingerprintSVG(fingerKey, pattern, 14);
+    setTemporaryPreviewImage(simulatedScan);
+
+    // Stage 1: Capturing frame at 500 DPI
+    const timer1 = setTimeout(() => {
+      setScanFeedbackStage('capturing');
+      setScanProgress(55);
+      setScanFeedbackMessage('กำลังสแกนลายนิ้วมือ 500 DPI (Optical Live Sensor)...');
+    }, 400);
+
+    // Stage 2: Enhancing ridges and contrast
+    const timer2 = setTimeout(() => {
+      setScanFeedbackStage('enhancing');
+      setScanProgress(85);
+      setScanFeedbackMessage('ปรับสมดุลแสงและความคมชัด (Auto Ridge Enhancement)...');
+    }, 950);
+
+    // Stage 3: Completed & Apply image
+    const timer3 = setTimeout(() => {
+      setScanFeedbackStage('completed');
+      setScanProgress(100);
+      setScanFeedbackMessage('จับภาพสำเร็จ! บันทึกลายนิ้วมือ 500 DPI เรียบร้อย');
+      handleApplyFutronicScan(simulatedScan, angleKey, fingerKey);
+    }, 1450);
+
+    // Reset overlay after short visual confirmation
+    const timer4 = setTimeout(() => {
+      setIsScanningFeedback(false);
+      setScanFeedbackStage('idle');
+      setTemporaryPreviewImage(null);
+      setScanProgress(0);
+    }, 2300);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+      clearTimeout(timer4);
+    };
   };
 
   // Bulk update fingerprints from Scanner Station
@@ -215,6 +280,20 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
     
     setSelectedFingerKey(fingerToUse);
     setActiveAngle(angleToUse);
+
+    // Provide visual feedback confirmation on studio canvas
+    setTemporaryPreviewImage(dataUrl);
+    setIsScanningFeedback(true);
+    setScanFeedbackStage('completed');
+    setScanProgress(100);
+    setScanFeedbackMessage('รับภาพจากหัวอ่าน Futronic FS80H สำเร็จ (500 DPI)');
+
+    setTimeout(() => {
+      setIsScanningFeedback(false);
+      setScanFeedbackStage('idle');
+      setTemporaryPreviewImage(null);
+      setScanProgress(0);
+    }, 1100);
     
     setFingerprints(prev => {
       const existingFinger = prev[fingerToUse] || {
@@ -902,15 +981,28 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setIsFutronicModalOpen(true)}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shrink-0 shadow-xs transition-all cursor-pointer"
-                title="เปิดสตูดิโอสแกนเนอร์ Futronic FS80H"
-              >
-                <Cpu className="w-3.5 h-3.5 text-amber-300" />
-                <span>สถานีสแกนเนอร์ FS80H</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => triggerSimulatedStudioScan()}
+                  disabled={isScanningFeedback}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shrink-0 shadow-xs transition-all cursor-pointer"
+                  title="จำลองการจับภาพจากเครื่องสแกน Futronic FS80H บน Canvas ทันที"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                  <span>{isScanningFeedback ? 'กำลังสแกน...' : 'จำลองสแกนด่วน (Simulate Scan)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsFutronicModalOpen(true)}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shrink-0 shadow-xs transition-all cursor-pointer"
+                  title="เปิดสตูดิโอสแกนเนอร์ Futronic FS80H"
+                >
+                  <Cpu className="w-3.5 h-3.5 text-amber-300" />
+                  <span>สถานีสแกนเนอร์ FS80H</span>
+                </button>
+              </div>
             </div>
 
             {/* Canvas / Image Editor Box */}
@@ -978,9 +1070,88 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
                     transform: `scale(${zoomLevel})`,
                     transformOrigin: 'center center'
                   }}
-                  className="w-60 h-60 bg-black rounded-lg relative overflow-hidden border border-slate-700 flex items-center justify-center cursor-crosshair transition-transform"
+                  className="w-60 h-60 bg-black rounded-lg relative overflow-hidden border border-slate-700 flex items-center justify-center cursor-crosshair transition-transform shadow-2xl"
                 >
-                  {currentAngleData.image ? (
+                  {/* Active Scan Visual Feedback / Live Optical Placeholder */}
+                  {isScanningFeedback || temporaryPreviewImage ? (
+                    <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-950">
+                      {temporaryPreviewImage ? (
+                        <img
+                          src={temporaryPreviewImage}
+                          alt="Scanning Preview"
+                          className={`w-full h-full object-contain transition-all duration-300 ${
+                            scanFeedbackStage === 'detecting' ? 'opacity-40 blur-[1px] brightness-75' :
+                            scanFeedbackStage === 'capturing' ? 'opacity-90 contrast-125 brightness-110' :
+                            scanFeedbackStage === 'enhancing' ? 'opacity-100 contrast-150 brightness-105' :
+                            'opacity-100 contrast-125'
+                          }`}
+                        />
+                      ) : (
+                        <div className="text-center p-4">
+                          <Loader2 className="w-10 h-10 text-cyan-400 animate-spin mx-auto mb-2" />
+                          <span className="text-[11px] text-cyan-300 font-mono">INITIALIZING SENSOR...</span>
+                        </div>
+                      )}
+
+                      {/* Optical Sensor Grid Matrix Overlay */}
+                      <div 
+                        className="absolute inset-0 pointer-events-none opacity-25"
+                        style={{
+                          backgroundImage: 'radial-gradient(circle, #22d3ee 1px, transparent 1px)',
+                          backgroundSize: '16px 16px'
+                        }}
+                      />
+
+                      {/* Animated Laser Scanning Sweep Line */}
+                      {scanFeedbackStage !== 'completed' && (
+                        <div className="absolute inset-x-0 h-1.5 bg-gradient-to-r from-transparent via-cyan-300 to-transparent shadow-[0_0_15px_#22d3ee] animate-scan-sweep pointer-events-none z-20" />
+                      )}
+
+                      {/* Scanner Corner Crosshair Reticles */}
+                      <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-cyan-400 pointer-events-none" />
+                      <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-cyan-400 pointer-events-none" />
+                      <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-cyan-400 pointer-events-none" />
+                      <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-cyan-400 pointer-events-none" />
+
+                      {/* Center Target Marker */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
+                        <div className="w-10 h-10 border border-dashed border-cyan-400 rounded-full flex items-center justify-center">
+                          <div className="w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
+                        </div>
+                      </div>
+
+                      {/* Header Badge */}
+                      <div className="absolute top-2.5 inset-x-3 flex items-center justify-between pointer-events-none z-20">
+                        <div className="px-2 py-0.5 bg-slate-900/90 border border-cyan-500/40 rounded text-[10px] text-cyan-300 font-mono font-bold flex items-center space-x-1.5 shadow-sm">
+                          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                          <span>FS80H 500 DPI</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-cyan-400 bg-slate-900/90 px-1.5 py-0.5 rounded border border-cyan-500/40">
+                          {scanProgress}%
+                        </span>
+                      </div>
+
+                      {/* Bottom Live Status Banner */}
+                      <div className="absolute bottom-2.5 inset-x-2 bg-slate-900/95 border border-cyan-500/50 rounded-lg p-2 text-center pointer-events-none z-20 backdrop-blur-xs shadow-lg">
+                        <div className="flex items-center justify-center space-x-1.5 text-xs font-semibold text-cyan-200 mb-1">
+                          {scanFeedbackStage === 'completed' ? (
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                          ) : (
+                            <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin" />
+                          )}
+                          <span className="truncate">{scanFeedbackMessage}</span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300"
+                            style={{ width: `${scanProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : currentAngleData.image ? (
                     <img
                       src={currentAngleData.image}
                       alt="Fingerprint Scan"
@@ -990,11 +1161,12 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
                     <div className="text-center p-4">
                       <Camera className="w-8 h-8 text-slate-600 mx-auto mb-2" />
                       <span className="text-xs text-slate-500">ยังไม่มีภาพในมุมนี้</span>
+                      <p className="text-[10px] text-slate-500 mt-1">คลิก "จำลองสแกนด่วน" หรือ "สแกนด้วย FS80H"</p>
                     </div>
                   )}
 
                   {/* Render Lines */}
-                  {currentAngleData.lines?.map((line, idx) => (
+                  {!isScanningFeedback && currentAngleData.lines?.map((line, idx) => (
                     <svg key={idx} className="absolute inset-0 w-full h-full pointer-events-none">
                       <line
                         x1={(line.start.x / 240) * 100 + '%'}
@@ -1011,7 +1183,7 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
                   ))}
 
                   {/* Render Plot RC Points */}
-                  {currentAngleData.plot_coordinates?.map((pt, idx) => (
+                  {!isScanningFeedback && currentAngleData.plot_coordinates?.map((pt, idx) => (
                     <div
                       key={idx}
                       style={{
@@ -1030,8 +1202,18 @@ export const FingerprintStudio: React.FC<FingerprintStudioProps> = ({
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
+                    onClick={() => triggerSimulatedStudioScan()}
+                    disabled={isScanningFeedback}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                    <span>{isScanningFeedback ? 'กำลังสแกน...' : 'จำลองสแกนด่วน (Simulate Scan)'}</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setIsFutronicModalOpen(true)}
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shadow-xs transition-colors"
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 shadow-xs transition-colors cursor-pointer"
                   >
                     <Cpu className="w-4 h-4 text-amber-300" />
                     <span>สแกนด้วย Futronic FS80H</span>

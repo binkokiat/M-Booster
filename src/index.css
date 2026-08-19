@@ -132,3 +132,21 @@
 .animate-spin-slow {
   animation: spin-slow 3s linear infinite;
 }
+
+@keyframes scan-sweep {
+  0% {
+    top: 2%;
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    top: 96%;
+    opacity: 0.95;
+  }
+}
+
+.animate-scan-sweep {
+  animation: scan-sweep 1.4s ease-in-out infinite alternate;
+}
