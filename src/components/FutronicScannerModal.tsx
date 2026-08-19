@@ -52,6 +52,7 @@ import {
   generateSimulatedFS80HScan, 
   playCaptureChime,
   downloadAutoStartupBat,
+  downloadCSharpBridgeFile,
   generateAutoStartupBatContent,
   ScannerStatus 
 } from '../utils/futronicService';
@@ -151,8 +152,14 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
   const [showDeltas, setShowDeltas] = useState<boolean>(true);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
+  // Workflow Mode: 'manual_confirm' (Live Stream -> Freeze & Review -> User Confirms Save) | 'auto_pilot' (Auto-Capture on steady finger)
+  const [workflowMode, setWorkflowMode] = useState<'manual_confirm' | 'auto_pilot'>('manual_confirm');
+  const [isReviewing, setIsReviewing] = useState<boolean>(false);
+  const [reviewFrame, setReviewFrame] = useState<string | null>(null);
+  const [reviewQuality, setReviewQuality] = useState<number>(95);
+
   // Automatic Finger Detection (AFD) & Auto-Capture Loop
-  const [afdEnabled, setAfdEnabled] = useState<boolean>(true);
+  const [afdEnabled, setAfdEnabled] = useState<boolean>(false);
   const [isFingerOnSensor, setIsFingerOnSensor] = useState<boolean>(false); // Strict default: false until detected
   const [afdProgress, setAfdProgress] = useState<number>(0);
   const [autoCaptureTriggered, setAutoCaptureTriggered] = useState<boolean>(false);
@@ -474,11 +481,12 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
             });
           }
 
-          // Automatic Finger Detection (AFD) Auto-Capture Logic
-          // ONLY trigger when isFingerOnSensor is TRUE, quality >= 80, and finger is steadily held
+          // Automatic Finger Detection (AFD) Auto-Capture Logic (Only active in Auto-Pilot mode)
           if (
+            workflowMode === 'auto_pilot' &&
             afdEnabled && 
             !isSleeping && 
+            !isReviewing &&
             isFingerOnSensor && 
             !autoCaptureTriggered &&
             liveLandmarks.qualityScore >= 80 &&
@@ -502,7 +510,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 setAfdProgress(0);
               }, 1600);
             }
-          } else {
+          } else if (workflowMode === 'auto_pilot') {
             // When finger is lifted or unstable, reset AFD countdown
             if (!isFingerOnSensor || liveLandmarks.qualityScore < 50) {
               stableFramesCountRef.current = 0;
@@ -514,6 +522,13 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               if (!autoCaptureTriggered) {
                 setAfdProgress(Math.round((stableFramesCountRef.current / 12) * 100));
               }
+            }
+          } else {
+            // In manual mode, indicate stability without triggering auto-save
+            if (isFingerOnSensor && liveLandmarks.qualityScore >= 80) {
+              setAfdProgress(100);
+            } else {
+              setAfdProgress(0);
             }
           }
         }
@@ -538,6 +553,8 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     currentFingerKey, 
     isFingerOnSensor, 
     isSleeping, 
+    isReviewing,
+    workflowMode,
     ledMode, 
     afdEnabled, 
     autoCaptureTriggered, 
@@ -590,9 +607,38 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     };
   }, [inputMode, isOpen]);
 
+  // Freeze current live frame for user review & inspection
+  const handleSnapForReview = (customImage?: string) => {
+    const frame = customImage || currentFrame || generateSimulatedFS80HScan(currentFingerKey, patternType, 1).dataUrl;
+    if (!frame) return;
+    setReviewFrame(frame);
+    setReviewQuality(liveLandmarks.qualityScore || 95);
+    setIsReviewing(true);
+    setStatusMessage('หยุดภาพนิ่งเพื่อตรวจสอบความคมชัด • ถ้าพอใจกด "บันทึก" หรือกด "ถ่ายใหม่"');
+    if (soundEnabled) {
+      playCaptureChime();
+    }
+  };
+
+  // Retake / Return to continuous live video stream
+  const handleRetake = () => {
+    setIsReviewing(false);
+    setReviewFrame(null);
+    setStatusMessage('กลับสู่โหมดภาพสด Realtime - ขยับหามุม Core/Delta ที่ต้องการ');
+  };
+
+  // Confirm Save from Review state
+  const handleConfirmSave = () => {
+    const imageToSave = reviewFrame || currentFrame;
+    if (!imageToSave) return;
+    handleSaveToTarget(currentFingerKey, currentAngleId, imageToSave);
+    setIsReviewing(false);
+    setReviewFrame(null);
+  };
+
   // Save scan snapshot into specific finger and position
   const handleSaveToTarget = (targetFingerKey: FingerKey, targetPositionId: string, imageToSave?: string) => {
-    const frameData = imageToSave || currentFrame || generateSimulatedFS80HScan(targetFingerKey, patternType, 1).dataUrl;
+    const frameData = imageToSave || reviewFrame || currentFrame || generateSimulatedFS80HScan(targetFingerKey, patternType, 1).dataUrl;
     if (!frameData) return;
 
     if (soundEnabled) {
@@ -678,8 +724,8 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
         setCurrentFrame(result.dataUrl);
         setFrameSource('real_hardware');
         setScannerStatus('success');
-        setStatusMessage('สแกนภาพจากเครื่อง FS80H สำเร็จเรียบร้อย');
-        handleSaveToTarget(currentFingerKey, currentAngleId, result.dataUrl);
+        setStatusMessage('ได้ภาพจากเครื่อง FS80H สำเร็จ - ตรวจสอบภาพแล้วกดบันทึก');
+        handleSnapForReview(result.dataUrl);
       } else {
         setStatusMessage('ไม่พบภาพจากเครื่อง FS80H (ตรวจเช็คการวางนิ้วและสาย USB)');
       }
@@ -702,31 +748,56 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
     setCurrentFrame(dataUrl);
     setFrameSource('real_camera');
-    handleSaveToTarget(currentFingerKey, currentAngleId, dataUrl);
+    handleSnapForReview(dataUrl);
   };
 
-  // Spacebar capture & Keyboard 1-5 shortcuts
+  // Spacebar, Enter, Escape & Keyboard 1-5 shortcuts
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Spacebar = Capture Current Frame into selected slot
+      // Spacebar: If reviewing -> Confirm Save; If live -> Snap & Review
       if (e.code === 'Space') {
         e.preventDefault();
-        handleSaveToTarget(currentFingerKey, currentAngleId);
+        registerUserActivity();
+        if (isReviewing) {
+          handleConfirmSave();
+        } else {
+          handleSnapForReview();
+        }
+        return;
       }
+
+      // Enter key: Confirm Save when in Review mode
+      if (e.code === 'Enter' && isReviewing) {
+        e.preventDefault();
+        registerUserActivity();
+        handleConfirmSave();
+        return;
+      }
+
+      // Escape or 'r'/'R' key: Retake / Back to Live Stream
+      if ((e.code === 'Escape' || e.key === 'r' || e.key === 'R') && isReviewing) {
+        e.preventDefault();
+        registerUserActivity();
+        handleRetake();
+        return;
+      }
+
       // 1 to 5 = Switch standard rolling position
-      if (['1', '2', '3', '4', '5'].includes(e.key)) {
+      if (['1', '2', '3', '4', '5'].includes(e.key) && !isReviewing) {
         const num = parseInt(e.key, 10);
         if (num >= 1 && num <= DEFAULT_STANDARD_POSITIONS.length) {
           setCurrentAngleId(DEFAULT_STANDARD_POSITIONS[num - 1].id);
+          setIsReviewing(false);
+          setReviewFrame(null);
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentFingerKey, currentAngleId, currentFrame, autoAdvance, soundEnabled]);
+  }, [isOpen, isReviewing, currentFingerKey, currentAngleId, reviewFrame, currentFrame, autoAdvance, soundEnabled]);
 
   // Upload File
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1096,106 +1167,140 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
           {/* ========================================================= */}
           <div className="lg:col-span-5 border-r border-slate-800 flex flex-col p-4 sm:p-5 overflow-y-auto bg-slate-900/60 justify-between space-y-3">
             
-            {/* Top Control Bar: LED Mode, AFD Toggle, Sleep Timer */}
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs bg-slate-950/80 p-2.5 rounded-xl border border-slate-800">
+            {/* Top Control Bar: Workflow Mode Selector, LED Mode, Sleep Timer */}
+            <div className="flex flex-col space-y-2 bg-slate-950/90 p-3 rounded-xl border border-slate-800">
               
-              {/* LED Control */}
-              <div className="flex items-center space-x-1">
-                <span className="text-[11px] text-slate-400 font-medium mr-1 flex items-center space-x-1">
-                  <Sun className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>ไฟเขียว LED:</span>
-                </span>
-                <div className="flex bg-slate-900 rounded-lg p-0.5 border border-slate-800 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => handleSetLedMode('auto')}
-                    className={`px-2 py-0.5 rounded ${ledMode === 'auto' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
-                    title="เปิดไฟเขียวอัตโนมัติเมื่อสัมผัส"
-                  >
-                    Auto (สัมผัส)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSetLedMode('on')}
-                    className={`px-2 py-0.5 rounded ${ledMode === 'on' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
-                    title="เปิดไฟค้างตลอดเวลา"
-                  >
-                    เปิดค้าง
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSetLedMode('off')}
-                    className={`px-2 py-0.5 rounded ${ledMode === 'off' ? 'bg-slate-700 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
-                    title="ปิดไฟ"
-                  >
-                    ปิด
-                  </button>
-                </div>
-              </div>
-
-              {/* AFD Auto Detection Toggle */}
-              <div className="flex items-center space-x-1.5">
+              {/* Workflow Mode Tabs */}
+              <div className="flex items-center justify-between gap-1 bg-slate-900/90 p-1 rounded-lg border border-slate-800 text-xs">
                 <button
                   type="button"
                   onClick={() => {
-                    setAfdEnabled(!afdEnabled);
+                    setWorkflowMode('manual_confirm');
+                    setAfdEnabled(false);
+                    setIsReviewing(false);
+                    setReviewFrame(null);
                     registerUserActivity();
                   }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center space-x-1 border transition-all ${
-                    afdEnabled 
-                      ? 'bg-emerald-600/30 border-emerald-400 text-emerald-300 shadow-xs'
-                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                  className={`flex-1 py-1.5 px-2 rounded-md font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer ${
+                    workflowMode === 'manual_confirm'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
                   }`}
-                  title="สแกนอัตโนมัติเมื่อตรวจพบนิ้ววางนิ่งบนกระจก (ไม่ต้องกดปุ่ม)"
+                  title="วางนิ้ว → เห็นภาพ realtime → ตรวจดูความชัด → กดบันทึกเมื่อพอใจ"
                 >
-                  <Activity className={`w-3.5 h-3.5 ${afdEnabled ? 'text-emerald-400 animate-pulse' : ''}`} />
-                  <span>AFD สแกนอัตโนมัติ {afdEnabled ? 'ON' : 'OFF'}</span>
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>👁️ ดูภาพสด & ตรวจสอบก่อนบันทึก</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkflowMode('auto_pilot');
+                    setAfdEnabled(true);
+                    setIsReviewing(false);
+                    setReviewFrame(null);
+                    registerUserActivity();
+                  }}
+                  className={`flex-1 py-1.5 px-2 rounded-md font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer ${
+                    workflowMode === 'auto_pilot'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="ระบบตรวจพบลายนิ้วมือนิ่งแล้วบันทึกและเลื่อนนิ้วอัตโนมัติ"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>⚡ โหมดอัตโนมัติ (Auto-Pilot)</span>
                 </button>
               </div>
 
-              {/* Sleep / Standby Timer Indicator */}
-              <div className="flex items-center space-x-1.5 text-[11px] text-slate-400">
-                <Moon className="w-3.5 h-3.5 text-amber-400" />
-                <span>พักใน: {sleepTimeoutSetting === 0 ? 'ปิด' : `${secondsUntilSleep}s`}</span>
-                <select
-                  value={sleepTimeoutSetting}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    setSleepTimeoutSetting(val);
-                    setSecondsUntilSleep(val || 999);
-                    registerUserActivity();
-                  }}
-                  className="bg-slate-900 border border-slate-800 text-[10px] text-slate-300 rounded px-1 py-0.5 focus:outline-none"
-                  title="กำหนดเวลาพักเซนเซอร์เมื่อไม่ใช้งาน"
-                >
-                  <option value={30}>30 วิ</option>
-                  <option value={60}>60 วิ</option>
-                  <option value={120}>2 นาที</option>
-                  <option value={300}>5 นาที</option>
-                  <option value={0}>ไม่พัก</option>
-                </select>
+              {/* Sub Controls: LED & Sleep Timer */}
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1 border-t border-slate-800/80">
+                {/* LED Control */}
+                <div className="flex items-center space-x-1">
+                  <span className="text-[11px] text-slate-400 font-medium mr-1 flex items-center space-x-1">
+                    <Sun className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>ไฟ LED:</span>
+                  </span>
+                  <div className="flex bg-slate-900 rounded-lg p-0.5 border border-slate-800 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => handleSetLedMode('auto')}
+                      className={`px-2 py-0.5 rounded ${ledMode === 'auto' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
+                      title="เปิดไฟเขียวอัตโนมัติเมื่อสัมผัส"
+                    >
+                      Auto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetLedMode('on')}
+                      className={`px-2 py-0.5 rounded ${ledMode === 'on' ? 'bg-emerald-600 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
+                      title="เปิดไฟค้างตลอดเวลา"
+                    >
+                      เปิดค้าง
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetLedMode('off')}
+                      className={`px-2 py-0.5 rounded ${ledMode === 'off' ? 'bg-slate-700 text-white font-bold' : 'text-slate-400 hover:text-white'}`}
+                      title="ปิดไฟ"
+                    >
+                      ปิด
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sleep / Standby Timer Indicator */}
+                <div className="flex items-center space-x-1.5 text-[11px] text-slate-400">
+                  <Moon className="w-3.5 h-3.5 text-amber-400" />
+                  <span>พักใน: {sleepTimeoutSetting === 0 ? 'ปิด' : `${secondsUntilSleep}s`}</span>
+                  <select
+                    value={sleepTimeoutSetting}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setSleepTimeoutSetting(val);
+                      setSecondsUntilSleep(val || 999);
+                      registerUserActivity();
+                    }}
+                    className="bg-slate-900 border border-slate-800 text-[10px] text-slate-300 rounded px-1 py-0.5 focus:outline-none"
+                    title="กำหนดเวลาพักเซนเซอร์เมื่อไม่ใช้งาน"
+                  >
+                    <option value={30}>30 วิ</option>
+                    <option value={60}>60 วิ</option>
+                    <option value={120}>2 นาที</option>
+                    <option value={300}>5 นาที</option>
+                    <option value={0}>ไม่พัก</option>
+                  </select>
+                </div>
               </div>
             </div>
 
             {/* Status Feedback Line */}
             <div className="flex items-center justify-between text-xs px-1 text-slate-300">
               <div className="flex items-center space-x-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${isSleeping ? 'bg-amber-400' : isFingerOnSensor ? 'bg-emerald-400 animate-ping' : 'bg-blue-400'}`} />
+                <span className={`w-2.5 h-2.5 rounded-full ${isSleeping ? 'bg-amber-400' : isReviewing ? 'bg-emerald-400 animate-bounce' : isFingerOnSensor ? 'bg-emerald-400 animate-ping' : 'bg-blue-400'}`} />
                 <span className="font-medium text-emerald-300">
                   {isSleeping 
                     ? '🌙 เซนเซอร์อยู่ในโหมดพักเครื่อง (Sleep Mode)' 
-                    : afdEnabled && afdProgress > 0 
-                    ? `⚡ ตรวจพบลายนิ้วมือ... กำลังบันทึกอัตโนมัติ (${afdProgress}%)`
+                    : isReviewing
+                    ? '🔍 หยุดภาพเพื่อตรวจสอบความชัด • พอใจแล้วกด "บันทึก" ด้านล่าง'
+                    : workflowMode === 'auto_pilot' && afdProgress > 0 
+                    ? `⚡ กำลังบันทึกอัตโนมัติ (${afdProgress}%)`
                     : statusMessage}
                 </span>
               </div>
-              <span className="font-mono text-[11px] text-slate-400">FS80H 500 DPI Optical</span>
+              <span className="font-mono text-[11px] text-slate-400">FS80H 500 DPI</span>
             </div>
 
-            {/* Zero-Config Hands-Free Auto-Scanning Guide Banner */}
-            <div className="bg-gradient-to-r from-emerald-950/80 via-slate-900 to-teal-950/80 border border-emerald-500/30 rounded-xl p-2.5 shadow-sm flex items-center justify-between text-xs">
+            {/* Target Finger & Step Guide Banner */}
+            <div className={`border rounded-xl p-2.5 shadow-sm flex items-center justify-between text-xs transition-colors ${
+              isReviewing 
+                ? 'bg-linear-to-r from-emerald-950/90 via-slate-900 to-teal-950/90 border-emerald-400' 
+                : 'bg-linear-to-r from-slate-900 via-slate-900/90 to-slate-950 border-slate-800'
+            }`}>
               <div className="flex items-center space-x-2.5">
-                <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                  isReviewing ? 'bg-emerald-500 text-slate-950 font-black' : 'bg-emerald-500/20 text-emerald-300'
+                }`}>
                   {currentFingerKey}
                 </div>
                 <div>
@@ -1205,13 +1310,24 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                     <span className="text-cyan-300">{currentAngleDef.label}</span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {currentAngleDef.guide} (วางนิ้วแนบกระจก ระบบจะสแกนและเลื่อนมุมถัดไปให้อัตโนมัติ)
+                    {isReviewing
+                      ? 'ตรวจสอบสันลายและจุดศูนย์กลาง (Core) หากพอใจกดปุ่มบันทึกสีเขียว'
+                      : currentAngleDef.guide}
                   </p>
                 </div>
               </div>
-              <div className="hidden sm:flex items-center space-x-1 bg-emerald-950/90 border border-emerald-700/60 px-2 py-1 rounded-lg text-[10px] text-emerald-300 font-mono">
-                <Zap className="w-3 h-3 text-emerald-400" />
-                <span>Auto-Pilot</span>
+              <div className="hidden sm:flex items-center space-x-1 bg-slate-950 px-2 py-1 rounded-lg text-[10px] font-mono border border-slate-800">
+                {isReviewing ? (
+                  <span className="text-emerald-300 font-bold flex items-center space-x-1">
+                    <Check className="w-3 h-3 text-emerald-400" />
+                    <span>Review Mode</span>
+                  </span>
+                ) : (
+                  <span className="text-blue-300 flex items-center space-x-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                    <span>Realtime Stream</span>
+                  </span>
+                )}
               </div>
             </div>
 
@@ -1221,6 +1337,8 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 className={`relative w-64 h-84 sm:w-72 sm:h-96 rounded-2xl p-2 transition-all duration-200 flex flex-col items-center justify-center select-none overflow-hidden ${
                   isSleeping 
                     ? 'border-2 border-slate-700 bg-slate-950 opacity-90'
+                    : isReviewing
+                    ? 'border-3 border-emerald-400 shadow-[0_0_40px_rgba(52,211,153,0.5)] ring-4 ring-emerald-500/20'
                     : autoCaptureTriggered || scannerStatus === 'success'
                     ? 'border-2 border-emerald-400 shadow-[0_0_35px_rgba(52,211,153,0.5)]'
                     : ledMode !== 'off' && isFingerOnSensor
@@ -1230,7 +1348,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               >
                 
                 {/* 1. Live Camera Stream */}
-                {inputMode === 'camera' && isCameraActive && (
+                {inputMode === 'camera' && isCameraActive && !isReviewing && (
                   <div className="relative w-full h-full rounded-xl overflow-hidden">
                     <video
                       ref={videoRef}
@@ -1246,12 +1364,12 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   </div>
                 )}
 
-                {/* 2. Pure Continuous Frame Loop Image (Realtime Live Feed) */}
-                {inputMode !== 'camera' && currentFrame && (
+                {/* 2. Pure Continuous Frame Loop Image (Realtime Live Feed OR Frozen Review Frame) */}
+                {(inputMode !== 'camera' || isReviewing) && (reviewFrame || currentFrame) && (
                   <div className="relative w-full h-full rounded-xl overflow-hidden flex items-center justify-center bg-black">
                     <img
-                      src={currentFrame}
-                      alt="Fingerprint Continuous Frame Feed"
+                      src={isReviewing && reviewFrame ? reviewFrame : currentFrame}
+                      alt="Fingerprint Frame Viewport"
                       className="w-full h-full object-contain rounded-xl transition-transform duration-75 pointer-events-none"
                       style={{
                         filter: `brightness(${brightness}%) contrast(${contrast}%) ${invertImage ? 'invert(1)' : ''}`,
@@ -1262,13 +1380,26 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 )}
 
                 {/* 3. Empty State Placeholder */}
-                {inputMode !== 'camera' && !currentFrame && (
+                {inputMode !== 'camera' && !currentFrame && !reviewFrame && (
                   <div className="text-center text-slate-400 space-y-2 p-4">
                     <div className="w-14 h-14 rounded-full bg-slate-800/80 border border-slate-700 flex items-center justify-center mx-auto text-emerald-400">
                       <Cpu className="w-7 h-7 animate-pulse" />
                     </div>
                     <p className="text-xs font-bold text-slate-200">วางกึ่งกลางนิ้วลงบนกระจกสแกน</p>
                     <p className="text-[11px] text-slate-400">Continuous Live Stream พร้อมแสดงผลทันที</p>
+                  </div>
+                )}
+
+                {/* Review Mode Top Banner Indicator */}
+                {isReviewing && (
+                  <div className="absolute top-2.5 inset-x-2.5 z-25 bg-emerald-950/95 backdrop-blur-md border border-emerald-400 text-white px-3 py-1.5 rounded-xl flex items-center justify-between shadow-lg animate-fade-in">
+                    <div className="flex items-center space-x-1.5 text-xs font-bold text-emerald-300">
+                      <Check className="w-4 h-4 text-emerald-400" />
+                      <span>ภาพนิ่งที่พร้อมบันทึก (คุณภาพ {reviewQuality}%)</span>
+                    </div>
+                    <span className="text-[10px] text-emerald-400 bg-emerald-900/60 px-1.5 py-0.5 rounded border border-emerald-700">
+                      ตรวจดูความคมชัด
+                    </span>
                   </div>
                 )}
 
@@ -1293,8 +1424,8 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   </div>
                 )}
 
-                {/* AFD Auto-Capture Progress Bar Overlay */}
-                {afdEnabled && afdProgress > 0 && !isSleeping && (
+                {/* AFD Auto-Capture Progress Bar Overlay (Only in Auto-Pilot) */}
+                {workflowMode === 'auto_pilot' && afdEnabled && afdProgress > 0 && !isSleeping && (
                   <div className="absolute inset-x-4 top-14 z-20 bg-black/80 backdrop-blur-md rounded-xl p-2.5 border border-emerald-500 shadow-lg">
                     <div className="flex items-center justify-between text-[11px] font-bold text-emerald-300 mb-1">
                       <span>✨ กำลังจับภาพอัตโนมัติ (AFD Locked)...</span>
@@ -1310,7 +1441,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 )}
 
                 {/* Overlay: Center Reticle / Core Aim Guide */}
-                {showGrid && !isSleeping && (
+                {showGrid && !isSleeping && !isReviewing && (
                   <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                     <div className={`w-28 h-28 border rounded-full border-dashed transition-colors ${liveLandmarks.coreDetected ? 'border-emerald-400/80 bg-emerald-500/5' : 'border-slate-500/40'}`} />
                     <div className="absolute w-full h-[1px] bg-emerald-500/20" />
@@ -1323,7 +1454,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 )}
 
                 {/* Overlay: Delta Target Boxes */}
-                {showDeltas && !isSleeping && (
+                {showDeltas && !isSleeping && !isReviewing && (
                   <div className="absolute inset-0 pointer-events-none">
                     <div className={`absolute left-3 bottom-12 w-14 h-14 border rounded-lg flex flex-col items-center justify-center text-[9px] font-mono transition-all ${
                       liveLandmarks.deltaLeftDetected ? 'border-amber-400 bg-amber-950/60 text-amber-300' : 'border-slate-600 bg-slate-900/40 text-slate-400'
@@ -1341,7 +1472,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 )}
 
                 {/* Live Realtime Quality Radar Overlay */}
-                {!isSleeping && (
+                {!isSleeping && !isReviewing && (
                   <div className="absolute top-2.5 right-2.5 flex items-center space-x-1 bg-slate-900/85 backdrop-blur-md px-2 py-0.5 rounded-lg border border-slate-700 text-[10px] font-mono text-slate-200">
                     <span className="text-emerald-400 font-bold">Q: {liveLandmarks.qualityScore}%</span>
                     <span className="text-slate-500">|</span>
@@ -1349,16 +1480,18 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                   </div>
                 )}
 
-                {/* Source Badge */}
-                <div className="absolute top-2.5 left-2.5 flex items-center space-x-1.5 bg-slate-900/85 backdrop-blur-md px-2 py-0.5 rounded border border-slate-700 text-[10px] font-mono">
-                  <span className={`w-2 h-2 rounded-full ${isSleeping ? 'bg-slate-500' : 'bg-emerald-400 animate-pulse'}`} />
-                  <span className="text-slate-200">
-                    {frameSource === 'real_hardware' ? '🟢 FS80H LIVE FEED' :
-                     frameSource === 'real_camera' ? '📷 WEBCAM LIVE FEED' :
-                     frameSource === 'real_upload' ? '📁 FILE IMAGE' :
-                     '⚡ CONTINUOUS LIVE FEED'}
-                  </span>
-                </div>
+                {/* Source Badge (When not reviewing) */}
+                {!isReviewing && (
+                  <div className="absolute top-2.5 left-2.5 flex items-center space-x-1.5 bg-slate-900/85 backdrop-blur-md px-2 py-0.5 rounded border border-slate-700 text-[10px] font-mono">
+                    <span className={`w-2 h-2 rounded-full ${isSleeping ? 'bg-slate-500' : 'bg-emerald-400 animate-pulse'}`} />
+                    <span className="text-slate-200">
+                      {frameSource === 'real_hardware' ? '🟢 FS80H LIVE' :
+                       frameSource === 'real_camera' ? '📷 WEBCAM LIVE' :
+                       frameSource === 'real_upload' ? '📁 FILE IMAGE' :
+                       '⚡ CONTINUOUS LIVE'}
+                    </span>
+                  </div>
+                )}
 
                 {/* Target Finger & Position Bar */}
                 <div className="absolute bottom-2.5 inset-x-2.5 bg-slate-900/90 backdrop-blur-md px-2.5 py-1.5 rounded border border-slate-700 text-xs text-slate-200 flex items-center justify-between">
@@ -1382,7 +1515,7 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                     setIsFingerOnSensor(!isFingerOnSensor);
                     registerUserActivity();
                   }}
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer ${
                     isFingerOnSensor ? 'bg-emerald-600 text-white' : 'bg-slate-700 text-slate-300'
                   }`}
                 >
@@ -1420,15 +1553,6 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                     className="flex-1 accent-emerald-500 h-1"
                   />
                 </div>
-              </div>
-            </div>
-
-            {/* Rolling Guide Tip */}
-            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-300 flex items-start space-x-2">
-              <Info className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold text-slate-200">วิธีพลิกนิ้ว (Finger Rolling Technique):</p>
-                <p className="text-[11px] text-slate-400">{currentAngleDef.guide}</p>
               </div>
             </div>
 
@@ -1489,55 +1613,99 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
               </button>
             </div>
 
-            {/* Instant Capture Action Buttons */}
+            {/* ACTION BUTTONS: Review State (Save / Retake) vs Live Stream State (Snap / Direct Scan) */}
             <div className="space-y-2 mt-auto pt-2 border-t border-slate-800">
-              {inputMode === 'hardware_fs80h' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    registerUserActivity();
-                    handleHardwareScan();
-                  }}
-                  disabled={isHardwareScanning}
-                  className="w-full py-2.5 px-4 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center space-x-2 border border-emerald-400/40 disabled:opacity-50 cursor-pointer"
-                >
-                  <Zap className={`w-4 h-4 text-amber-300 ${isHardwareScanning ? 'animate-spin' : ''}`} />
-                  <span>
-                    {isHardwareScanning 
-                      ? 'กำลังอ่านภาพลายนิ้วมือจาก FS80H...' 
-                      : '⚡ สแกนภาพจริงจาก FS80H ทันที'}
-                  </span>
-                </button>
+              
+              {/* === CASE A: USER IS REVIEWING FROZEN FRAME === */}
+              {isReviewing ? (
+                <div className="space-y-2 animate-fade-in">
+                  {/* Primary Save Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      registerUserActivity();
+                      handleConfirmSave();
+                    }}
+                    className="w-full py-3.5 px-4 bg-linear-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-sm sm:text-base rounded-xl shadow-lg shadow-emerald-950/80 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98 border border-emerald-300 ring-2 ring-emerald-500/40"
+                  >
+                    <Check className="w-5 h-5 text-amber-300 shrink-0" />
+                    <span>
+                      ✅ พอใจภาพนี้ - บันทึกลง <strong>{currentFingerDef.shortName}</strong> ({currentAngleDef.label}) [กด Spacebar / Enter]
+                    </span>
+                  </button>
+
+                  {/* Retake Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      registerUserActivity();
+                      handleRetake();
+                    }}
+                    className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center space-x-2 border border-slate-700 cursor-pointer transition-all active:scale-98"
+                  >
+                    <RefreshCw className="w-4 h-4 text-amber-400" />
+                    <span>🔄 ภาพยังไม่ชัด / ขอกลับไปดูสดใหม่ (Retake) [กด Esc หรือ R]</span>
+                  </button>
+                </div>
+              ) : (
+                /* === CASE B: LIVE STREAMING STATE === */
+                <div className="space-y-2">
+                  {/* FS80H Direct Hardware High-Res 500 DPI Snap */}
+                  {inputMode === 'hardware_fs80h' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        registerUserActivity();
+                        handleHardwareScan();
+                      }}
+                      disabled={isHardwareScanning}
+                      className="w-full py-2 px-3 bg-linear-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-emerald-300 font-bold text-xs rounded-xl shadow-md flex items-center justify-center space-x-2 border border-emerald-500/30 disabled:opacity-50 cursor-pointer"
+                    >
+                      <Zap className={`w-3.5 h-3.5 text-amber-300 ${isHardwareScanning ? 'animate-spin' : ''}`} />
+                      <span>
+                        {isHardwareScanning 
+                          ? 'กำลังอ่านภาพลายนิ้วมือ 500 DPI จาก FS80H...' 
+                          : '⚡ สแกนภาพความละเอียดสูง 500 DPI จาก FS80H (Hardware Snap)'}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Webcam capture */}
+                  {inputMode === 'camera' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        registerUserActivity();
+                        handleCaptureFromCamera();
+                      }}
+                      className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center space-x-2 cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4 text-amber-300" />
+                      <span>📷 ถ่ายภาพลายนิ้วมือจากกล้องเพื่อตรวจสอบ</span>
+                    </button>
+                  )}
+
+                  {/* Main Snap / Freeze Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      registerUserActivity();
+                      handleSnapForReview();
+                    }}
+                    className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm sm:text-base rounded-xl shadow-lg shadow-emerald-950/60 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98 border border-emerald-400/60"
+                  >
+                    <Camera className="w-5 h-5 text-amber-300 shrink-0" />
+                    <span>
+                      📸 ถ่ายภาพนี้ / หยุดดูความชัด (Snap Frame) [กด Spacebar]
+                    </span>
+                  </button>
+
+                  <p className="text-[11px] text-center text-slate-400">
+                    วางนิ้วบนกระจกสแกน → ดูภาพเปลี่ยนแบบ Realtime → เมื่อภาพชัดให้กดปุ่มถ่ายเพื่อตรวจดูภาพ → ถ้าพอใจจึงกดบันทึก
+                  </p>
+                </div>
               )}
 
-              {inputMode === 'camera' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    registerUserActivity();
-                    handleCaptureFromCamera();
-                  }}
-                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center space-x-2 cursor-pointer"
-                >
-                  <Camera className="w-4 h-4 text-amber-300" />
-                  <span>📷 ถ่ายภาพลายนิ้วมือจากกล้อง</span>
-                </button>
-              )}
-
-              {/* Primary Capture Button into Active Selection (Spacebar) */}
-              <button
-                type="button"
-                onClick={() => {
-                  registerUserActivity();
-                  handleSaveToTarget(currentFingerKey, currentAngleId);
-                }}
-                className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-950/60 flex items-center justify-center space-x-2 cursor-pointer transition-all active:scale-98 border border-emerald-400/50"
-              >
-                <Check className="w-4 h-4 text-amber-300" />
-                <span>
-                  บันทึกลง <strong>{currentFingerDef.shortName}</strong> ({currentAngleDef.label}) [กด Spacebar]
-                </span>
-              </button>
             </div>
 
           </div>
@@ -2167,20 +2335,34 @@ export const FutronicScannerModal: React.FC<FutronicScannerModalProps> = ({
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const code = driverLangTab === 'python' 
-                    ? getFutronicDriverSampleCode().python 
-                    : getFutronicDriverSampleCode().csharp;
-                  navigator.clipboard.writeText(code);
-                  alert('คัดลอก Source Code สำเร็จแล้ว!');
-                }}
-                className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg flex items-center space-x-1 transition-all"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>คัดลอกโค้ด</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                {driverLangTab === 'csharp' && (
+                  <button
+                    type="button"
+                    onClick={downloadCSharpBridgeFile}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg flex items-center space-x-1 transition-all cursor-pointer shadow-xs"
+                    title="ดาวน์โหลดไฟล์ซอร์สโค้ด C# Program.cs สำหรับ FS80H"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>ดาวน์โหลด Program.cs</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const code = driverLangTab === 'python' 
+                      ? getFutronicDriverSampleCode().python 
+                      : getFutronicDriverSampleCode().csharp;
+                    navigator.clipboard.writeText(code);
+                    alert('คัดลอก Source Code สำเร็จแล้ว!');
+                  }}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg flex items-center space-x-1 transition-all cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>คัดลอกโค้ด</span>
+                </button>
+              </div>
             </div>
 
             {/* Code Body */}
