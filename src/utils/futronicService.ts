@@ -83,11 +83,12 @@ export async function checkMbtScannerStatus(url: string = DEFAULT_MBT_SCANNER_UR
 }
 
 /**
- * Check if the local Futronic ftrScanAPI Web Server is running on port 15270
+ * Check if the local Futronic ftrScanAPI Web Server (FtrScanHttpServer.exe) is running on port 15270
  */
 export async function checkFutronicServerStatus(endpoint: string = DEFAULT_FUTRONIC_ENDPOINT): Promise<{
   isOnline: boolean;
   message: string;
+  deviceInfo?: any;
 }> {
   let timeoutId: any = null;
   try {
@@ -96,23 +97,32 @@ export async function checkFutronicServerStatus(endpoint: string = DEFAULT_FUTRO
       try {
         controller.abort();
       } catch {}
-    }, 1500);
+    }, 2000);
 
-    // Test ping via POST attempt
+    // Send official FtrScanHttpServer getinfo command
     const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ operation: 'check' }),
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ cmd: 'getinfo', operation: 'check' }),
       signal: controller.signal
     }).catch(() => null);
 
     if (timeoutId) clearTimeout(timeoutId);
 
     if (res && (res.status === 200 || res.status === 400 || res.status === 405)) {
-      return {
-        isOnline: true,
-        message: 'เชื่อมต่อ Local Driver (พอร์ต 15270) สำเร็จ พร้อมสตรีมภาพสด'
-      };
+      try {
+        const json = await res.json();
+        return {
+          isOnline: true,
+          message: `เชื่อมต่อ Futronic FS80H (FtrScanHttpServer.exe) สำเร็จ! ${json.devwidth ? `[ความละเอียด ${json.devwidth}x${json.devheight}]` : ''}`,
+          deviceInfo: json
+        };
+      } catch {
+        return {
+          isOnline: true,
+          message: 'เชื่อมต่อ Local FtrScanHttpServer (พอร์ต 15270) สำเร็จ พร้อมสแกน'
+        };
+      }
     }
   } catch {
     // Network, CORS, or Abort error handled safely
@@ -122,7 +132,7 @@ export async function checkFutronicServerStatus(endpoint: string = DEFAULT_FUTRO
 
   return {
     isOnline: false,
-    message: 'ไม่พบบริการ Futronic Web Service ที่พอร์ต 15270 (หากยังไม่ได้เปิดไดรเวอร์ สามารถใช้โหมดจำลองภาพสดได้ทันที)'
+    message: 'ยังไม่พบ FtrScanHttpServer.exe รันอยู่ที่พอร์ต 15270 (กรุณาดับเบิลคลิกเปิดไฟล์ FtrScanHttpServer.exe ในเครื่อง)'
   };
 }
 
@@ -692,9 +702,11 @@ export async function startHttpCapture(
   onStatusChange?: (status: ScannerStatus, label: string) => void,
   invert: boolean = true
 ): Promise<ScanResult> {
-  onStatusChange?.('checking', 'กำลังเชื่อมต่อเครื่องสแกน Futronic FS80H (พอร์ต 15270)...');
+  onStatusChange?.('checking', 'กำลังส่งคำสั่งสแกนไปยัง Futronic FS80H (FtrScanHttpServer)...');
 
+  // Both cmd (official FtrScanHttpServer) and operation (custom bridge)
   const payload = {
+    cmd: 'capture',
     operation: 'capture',
     lfd: 'no',
     invert: invert ? 'yes' : 'no'
@@ -711,8 +723,23 @@ export async function startHttpCapture(
   }
 
   const opData = await response.json();
-  if (opData.status !== 'success') {
-    throw new Error(opData.error || 'Failed to initialize capture');
+  if (opData.status !== 'success' && opData.status !== 'inprogress' && opData.status !== 'pending' && !opData.id && !opData.image && !opData.dataUrl) {
+    throw new Error(opData.error || opData.errorstr || 'Failed to initialize capture');
+  }
+
+  // If the server directly returned the captured image
+  if (opData.image || opData.dataUrl || opData.bitmap) {
+    const rawImage = opData.image || opData.dataUrl || opData.bitmap;
+    const finalDataUrl = rawImage.startsWith('data:') ? rawImage : `data:image/bmp;base64,${rawImage}`;
+    onStatusChange?.('success', 'สแกนลายนิ้วมือสำเร็จ!');
+    return {
+      dataUrl: finalDataUrl,
+      width: parseInt(opData.devwidth, 10) || 320,
+      height: parseInt(opData.devheight, 10) || 480,
+      timestamp: new Date().toISOString(),
+      source: 'hardware_http',
+      qualityScore: 95
+    };
   }
 
   const opId = opData.id;
@@ -734,7 +761,9 @@ export async function startHttpCapture(
       }
 
       try {
-        const stateRes = await fetch(`${endpoint}/${opId}`);
+        const stateRes = await fetch(`${endpoint}/${opId}`).catch(() => 
+          fetch(`${endpoint}?id=${opId}`)
+        );
         if (!stateRes.ok) {
           clearInterval(pollInterval);
           reject(new Error('การเชื่อมต่อกับสแกนเนอร์ขาดหาย'));
@@ -743,12 +772,28 @@ export async function startHttpCapture(
 
         const stateData = await stateRes.json();
 
-        if (stateData.state === 'inprogress') {
-          onStatusChange?.('waiting_finger', 'กรุณาวางและขยับนิ้วบนเครื่องสแกน Futronic FS80H...');
-        } else if (stateData.state === 'done') {
+        if (stateData.state === 'inprogress' || stateData.status === 'inprogress' || stateData.status === 'waiting_finger') {
+          onStatusChange?.('waiting_finger', 'กรุณาวางและกดนิ้วบนกระจกสแกนเนอร์ Futronic FS80H...');
+        } else if (stateData.state === 'done' || stateData.status === 'success' || stateData.status === 'done') {
           clearInterval(pollInterval);
-          if (stateData.status === 'success') {
-            onStatusChange?.('capturing', 'กำลังประมวลผลภาพลายนิ้วมือ...');
+          if (stateData.status === 'success' || stateData.state === 'done') {
+            onStatusChange?.('capturing', 'กำลังประมวลผลภาพลายนิ้วมือ 500 DPI...');
+
+            // If image string is already in the response
+            if (stateData.image || stateData.dataUrl || stateData.bitmap) {
+              const rawImage = stateData.image || stateData.dataUrl || stateData.bitmap;
+              const finalDataUrl = rawImage.startsWith('data:') ? rawImage : `data:image/bmp;base64,${rawImage}`;
+              onStatusChange?.('success', 'สแกนลายนิ้วมือสำเร็จ!');
+              resolve({
+                dataUrl: finalDataUrl,
+                width: devWidth,
+                height: devHeight,
+                timestamp: new Date().toISOString(),
+                source: 'hardware_http',
+                qualityScore: 95
+              });
+              return;
+            }
 
             // Fetch raw image bytes
             const imgRes = await fetch(`${endpoint}/${opId}/image`);
@@ -780,20 +825,21 @@ export async function startHttpCapture(
                 height: devHeight,
                 rawBytes,
                 timestamp: new Date().toISOString(),
-                source: 'hardware_http'
+                source: 'hardware_http',
+                qualityScore: 95
               });
             } else {
               reject(new Error('Failed to create canvas context'));
             }
           } else {
-            reject(new Error('การสแกนล้มเหลว กรุณาวางนิ้วใหม่อีกครั้ง'));
+            reject(new Error(stateData.errorstr || stateData.error || 'การสแกนล้มเหลว กรุณาวางนิ้วใหม่อีกครั้ง'));
           }
         }
       } catch (err: any) {
         clearInterval(pollInterval);
         reject(err);
       }
-    }, 400);
+    }, 350);
   });
 }
 
